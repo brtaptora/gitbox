@@ -87,3 +87,15 @@ Set-Alias -Name 'g-branch-sync'    -Value 'Sync-GitBranch'
 Set-Alias -Name 'g-push'           -Value 'Push-GitBranch'
 Set-Alias -Name 'g-branch-create'  -Value 'New-GitBranch'
 Set-Alias -Name 'g-pr-checks'      -Value 'Get-GitPullRequestChecks'
+
+function Invoke-Gitbox {
+    param(
+        [Parameter(Position=0, Mandatory)]
+        [string]$Spec,
+        [Parameter(Position=1, ValueFromRemainingArguments)]
+        [string[]]$Rest
+    )
+    & (Join-Path $PSScriptRoot 'gitbox.ps1') $Spec @Rest
+}
+
+Set-Alias -Name 'gitbox' -Value 'Invoke-Gitbox'

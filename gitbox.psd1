@@ -19,7 +19,8 @@
         'Sync-GitBranch',
         'Push-GitBranch',
         'New-GitBranch',
-        'Get-GitPullRequestChecks'
+        'Get-GitPullRequestChecks',
+        'Invoke-Gitbox'
     )
 
     AliasesToExport = @(
@@ -35,7 +36,8 @@
         'g-branch-sync',
         'g-push',
         'g-branch-create',
-        'g-pr-checks'
+        'g-pr-checks',
+        'gitbox'
     )
 
     PrivateData = @{
