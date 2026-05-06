@@ -28,5 +28,5 @@ process {
     $url = gh @prArgs 2>$null
     $number = $url -replace ".*/pull/", ""
 
-    Write-Host "PR #$number opened · $url"
+    Write-Host "PR #$number opened |$url"
 }

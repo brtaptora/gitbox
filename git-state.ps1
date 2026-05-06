@@ -41,7 +41,7 @@ if ($behindStr) { $parts += $behindStr }
 $parts += $dirtyStr
 $parts += $prLabel
 
-Write-Host ($parts -join " · ")
+Write-Host ($parts -join " | ")
 
 if ($d -and $prJson -and $prJson.Count -gt 0) {
     $body = gh pr view $pr.number --json body -q .body 2>$null

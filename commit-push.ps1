@@ -21,5 +21,5 @@ process {
     # push
     git -C $repo push -u origin $branch 2>$null | Out-Null
 
-    Write-Host "staged $staged · committed $sha · pushed origin/$branch"
+    Write-Host "staged $staged |committed $sha |pushed origin/$branch"
 }
