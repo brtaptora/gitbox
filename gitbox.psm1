@@ -46,6 +46,10 @@ function Get-GitCapabilities {
     & (Join-Path $PSScriptRoot 'g-capabilities.ps1')
 }
 
+function Get-GitPullRequestChecks {
+    & (Join-Path $PSScriptRoot 'g-pr-checks.ps1')
+}
+
 function New-GitBranch {
     param(
         [Parameter(ValueFromPipeline, Mandatory)]
@@ -82,3 +86,4 @@ Set-Alias -Name 'g-branch-rename'  -Value 'Rename-GitBranch'
 Set-Alias -Name 'g-branch-sync'    -Value 'Sync-GitBranch'
 Set-Alias -Name 'g-push'           -Value 'Push-GitBranch'
 Set-Alias -Name 'g-branch-create'  -Value 'New-GitBranch'
+Set-Alias -Name 'g-pr-checks'      -Value 'Get-GitPullRequestChecks'
