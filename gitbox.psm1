@@ -46,6 +46,10 @@ function Get-GitCapabilities {
     & (Join-Path $PSScriptRoot 'g-capabilities.ps1')
 }
 
+function Push-GitBranch {
+    & (Join-Path $PSScriptRoot 'g-push.ps1')
+}
+
 function Sync-GitBranch {
     & (Join-Path $PSScriptRoot 'g-branch-sync.ps1')
 }
@@ -68,3 +72,4 @@ Set-Alias -Name 'g-backlog'        -Value 'Get-GitBacklog'
 Set-Alias -Name 'g-capabilities'   -Value 'Get-GitCapabilities'
 Set-Alias -Name 'g-branch-rename'  -Value 'Rename-GitBranch'
 Set-Alias -Name 'g-branch-sync'    -Value 'Sync-GitBranch'
+Set-Alias -Name 'g-push'           -Value 'Push-GitBranch'
