@@ -15,7 +15,8 @@
         'Resolve-GitMatrix',
         'Get-GitBacklog',
         'Get-GitCapabilities',
-        'Rename-GitBranch'
+        'Rename-GitBranch',
+        'Sync-GitBranch'
     )
 
     AliasesToExport = @(
@@ -27,7 +28,8 @@
         'g-matrix-resolve',
         'g-backlog',
         'g-capabilities',
-        'g-branch-rename'
+        'g-branch-rename',
+        'g-branch-sync'
     )
 
     PrivateData = @{
