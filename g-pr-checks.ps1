@@ -33,3 +33,4 @@ foreach ($c in $pending) { Write-Host "  PENDING $($c.name)" }
 foreach ($c in $pass)    { Write-Host "  pass    $($c.name)" }
 
 if ($fail.Count -gt 0) { exit 1 }
+exit 0

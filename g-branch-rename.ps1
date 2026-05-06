@@ -38,4 +38,5 @@ process {
     }
 
     Write-Host "renamed $oldName -> $Name"
+    exit 0
 }

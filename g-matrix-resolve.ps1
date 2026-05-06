@@ -90,4 +90,5 @@ process {
         }
     }
     if ($action) { Write-Host "  next: $action" }
+    exit 0
 }

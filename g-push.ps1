@@ -28,3 +28,4 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "pushed $ahead commit$(if ($ahead -ne 1) {'s'}) to origin/$branch"
+exit 0

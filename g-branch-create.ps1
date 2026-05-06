@@ -33,4 +33,5 @@ process {
     }
 
     Write-Host "created $Name from $baseBranch"
+    exit 0
 }

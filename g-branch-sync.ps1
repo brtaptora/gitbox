@@ -34,3 +34,4 @@ if ($LASTEXITCODE -ne 0) {
 
 $ahead = (git -C $repo rev-list "origin/${baseBranch}..HEAD" 2>$null | Measure-Object -Line).Lines
 Write-Host "synced $branch onto origin/$baseBranch |+$ahead ahead |0 behind"
+exit 0

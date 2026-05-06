@@ -148,3 +148,4 @@ foreach ($step in $diag) {
         }
     }
 }
+exit 0

@@ -50,3 +50,4 @@ if ($d -and $prJson -and $prJson.Count -gt 0) {
         Write-Host $body
     }
 }
+exit 0

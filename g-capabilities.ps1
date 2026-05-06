@@ -55,3 +55,4 @@ foreach ($dim in ($GapRequirements.Keys | Sort-Object)) {
         }
     }
 }
+exit 0

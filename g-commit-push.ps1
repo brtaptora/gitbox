@@ -34,4 +34,5 @@ process {
     }
 
     Write-Host "staged $staged |committed $sha |pushed origin/$branch"
+    exit 0
 }

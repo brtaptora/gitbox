@@ -42,3 +42,4 @@ $newBranch = "wip/$(Get-Date -Format 'MMdd-HHmm')"
 git -C $repo checkout -b $newBranch 2>$null | Out-Null
 
 Write-Host "merged #$prNumber |deleted $branch |new branch $newBranch"
+exit 0

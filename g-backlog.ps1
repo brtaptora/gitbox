@@ -61,3 +61,4 @@ foreach ($wfName in $WorkflowRegistry.Keys) {
     $coversStr = if ($covers) { $covers -join ' ' } else { '(none)' }
     Write-Host ("  {0,-8} = {1,-6}  covers: {2}" -f $wfName, $wFlags, $coversStr)
 }
+exit 0
