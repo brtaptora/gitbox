@@ -17,7 +17,8 @@
         'Get-GitCapabilities',
         'Rename-GitBranch',
         'Sync-GitBranch',
-        'Push-GitBranch'
+        'Push-GitBranch',
+        'New-GitBranch'
     )
 
     AliasesToExport = @(
@@ -31,7 +32,8 @@
         'g-capabilities',
         'g-branch-rename',
         'g-branch-sync',
-        'g-push'
+        'g-push',
+        'g-branch-create'
     )
 
     PrivateData = @{
