@@ -9,8 +9,8 @@ process {
     $repo = Get-Location
 
     $remote = git -C $repo remote get-url origin 2>$null
-    if ($remote -notmatch "brtaptora/") {
-        Write-Host "wrong remote: $remote"; exit 1
+    if ($remote -notmatch "github\.com") {
+        Write-Host "remote is not GitHub: $remote"; exit 1
     }
 
     $repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
