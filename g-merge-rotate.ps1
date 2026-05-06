@@ -1,3 +1,8 @@
+param(
+    [Parameter(ValueFromPipeline)]
+    [string]$Name
+)
+
 $repo = Get-Location
 
 $remote = git -C $repo remote get-url origin 2>$null
@@ -37,8 +42,8 @@ git -C $repo push origin --delete $branch 2>$null | Out-Null
 # delete local branch
 git -C $repo branch -d $branch 2>$null | Out-Null
 
-# create new wip branch
-$newBranch = "wip/$(Get-Date -Format 'MMdd-HHmm')"
+# create next branch — use supplied name or fall back to wip/ timestamp
+$newBranch = if ($Name) { $Name } else { "wip/$(Get-Date -Format 'MMdd-HHmm')" }
 git -C $repo checkout -b $newBranch 2>$null | Out-Null
 
 Write-Host "merged #$prNumber |deleted $branch |new branch $newBranch"
