@@ -18,7 +18,8 @@
         'Rename-GitBranch',
         'Sync-GitBranch',
         'Push-GitBranch',
-        'New-GitBranch'
+        'New-GitBranch',
+        'Get-GitPullRequestChecks'
     )
 
     AliasesToExport = @(
@@ -33,7 +34,8 @@
         'g-branch-rename',
         'g-branch-sync',
         'g-push',
-        'g-branch-create'
+        'g-branch-create',
+        'g-pr-checks'
     )
 
     PrivateData = @{
