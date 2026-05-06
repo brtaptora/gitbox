@@ -19,8 +19,13 @@ if (-not $prJson -or $prJson.Count -eq 0) {
 }
 $prNumber = $prJson[0].number
 
-# merge PR (merge commit, no auto-delete via gh so we control cleanup)
-gh pr merge $prNumber --repo $repoName --merge 2>$null | Out-Null
+# gh pr merge exit code is the only reliable signal; stderr must be captured to surface failures
+$mergeOut = gh pr merge $prNumber --repo $repoName --merge 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "merge failed: PR #$prNumber not merged; branch '$branch' preserved"
+    $mergeOut | ForEach-Object { Write-Host "  $_" }
+    exit 1
+}
 
 # switch to base branch and pull
 git -C $repo checkout $baseBranch 2>$null | Out-Null
