@@ -10,6 +10,69 @@ Import-Module .\gitbox.psd1
 
 Each script has a `g-` alias and a verb-noun function name. Either form works after import.
 
+## Orchestrator
+
+`gitbox.ps1` sequences flags into a pipeline. Lowercase flags are mutating and run in a fixed canonical order; uppercase flags are diagnostic and run after all mutating steps. The pipeline halts immediately on the first failure.
+
+```powershell
+gitbox <flags|workflow> [arg ...]
+```
+
+### Flags
+
+| Flag | What it does | Needs arg |
+|------|-------------|-----------|
+| `b` | Create branch from base | branch name |
+| `r` | Rename current branch | branch name |
+| `s` | Fetch and rebase onto base | — |
+| `c` | Stage all, commit, push | commit message |
+| `p` | Push unpushed commits | — |
+| `o` | Open PR against default branch | PR title |
+| `x` | Report CI check results | — |
+| `m` | Merge PR, delete branch, create `wip/` | — |
+| `Q` | One-line repo status | — |
+| `S` | Emit state hash and recommended action | — |
+| `B` | List unhandled workflow states | — |
+| `C` | Score script coverage | — |
+| `W` | Print workflow registry | — |
+| `O` | Print optimization scores | — |
+
+Arguments are positional and consumed left-to-right by flags that need one.
+
+### Named workflows
+
+| Name | Flags | What it does |
+|------|-------|-------------|
+| `start` | `b` | Create branch |
+| `rename` | `r` | Rename branch |
+| `sync` | `s` | Rebase onto base |
+| `commit` | `c` | Stage, commit, push |
+| `push` | `p` | Push |
+| `pr` | `o` | Open PR |
+| `checks` | `x` | Check CI |
+| `merge` | `m` | Merge and rotate |
+| `ship` | `cxm` | Commit, check CI, merge |
+| `full` | `cpom` | Commit, push, open PR, merge |
+
+### Examples
+
+```powershell
+# create a branch
+gitbox b "feat/my-feature"
+
+# commit and push
+gitbox c "fix the thing"
+
+# commit, check CI, merge
+gitbox ship "all done"
+
+# commit and open PR in one step (two args: commit message then PR title)
+gitbox co "fix the thing" "Fix the thing"
+
+# show workflow registry
+gitbox W
+```
+
 ## Commands
 
 ### Branch
