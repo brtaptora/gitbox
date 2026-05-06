@@ -7,11 +7,14 @@ $repo = Get-Location
 $branch = git -C $repo branch --show-current 2>$null
 if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 
-# ahead/behind production
-$upstream = git -C $repo rev-parse --verify origin/production 2>$null
+$baseBranch = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
+if (-not $baseBranch) { $baseBranch = "main" }
+
+# ahead/behind base branch
+$upstream = git -C $repo rev-parse --verify origin/$baseBranch 2>$null
 if ($upstream) {
-    $ahead  = (git -C $repo rev-list origin/production..HEAD 2>$null | Measure-Object -Line).Lines
-    $behind = (git -C $repo rev-list HEAD..origin/production 2>$null | Measure-Object -Line).Lines
+    $ahead  = (git -C $repo rev-list origin/${baseBranch}..HEAD 2>$null | Measure-Object -Line).Lines
+    $behind = (git -C $repo rev-list HEAD..origin/${baseBranch} 2>$null | Measure-Object -Line).Lines
 } else {
     $ahead  = 0
     $behind = 0

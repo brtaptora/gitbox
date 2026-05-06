@@ -13,10 +13,12 @@ process {
         Write-Host "wrong remote: $remote"; exit 1
     }
 
-    $repoName = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
-    $branch   = git -C $repo branch --show-current 2>$null
+    $repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
+    $branch     = git -C $repo branch --show-current 2>$null
+    $baseBranch = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
+    if (-not $baseBranch) { $baseBranch = "main" }
 
-    $prArgs = @("pr", "create", "--repo", $repoName, "--title", $Title, "--base", "production")
+    $prArgs = @("pr", "create", "--repo", $repoName, "--title", $Title, "--base", $baseBranch)
     if ($Body) {
         $prArgs += @("--body", $Body)
     } else {

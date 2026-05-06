@@ -5,8 +5,10 @@ if ($remote -notmatch "brtaptora/") {
     Write-Host "wrong remote: $remote"; exit 1
 }
 
-$repoName = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
-$branch   = git -C $repo branch --show-current 2>$null
+$repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
+$branch     = git -C $repo branch --show-current 2>$null
+$baseBranch = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
+if (-not $baseBranch) { $baseBranch = "main" }
 
 if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 
@@ -20,9 +22,9 @@ $prNumber = $prJson[0].number
 # merge PR (merge commit, no auto-delete via gh so we control cleanup)
 gh pr merge $prNumber --repo $repoName --merge 2>$null | Out-Null
 
-# switch to production and pull
-git -C $repo checkout production 2>$null | Out-Null
-git -C $repo pull origin production 2>$null | Out-Null
+# switch to base branch and pull
+git -C $repo checkout $baseBranch 2>$null | Out-Null
+git -C $repo pull origin $baseBranch 2>$null | Out-Null
 
 # delete remote branch
 git -C $repo push origin --delete $branch 2>$null | Out-Null
