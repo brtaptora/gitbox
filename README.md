@@ -29,7 +29,7 @@ gitbox <flags|workflow> [arg ...]
 | `p` | Push unpushed commits | — |
 | `o` | Open PR against default branch | PR title |
 | `x` | Report CI check results | — |
-| `m` | Merge PR, delete branch, create `wip/` | — |
+| `m` | Merge PR, delete branch, create next branch | branch name (optional) |
 | `Q` | One-line repo status | — |
 | `S` | Emit state hash and recommended action | — |
 | `B` | List unhandled workflow states | — |
@@ -50,7 +50,7 @@ Arguments are positional and consumed left-to-right by flags that need one.
 | `push` | `p` | Push |
 | `pr` | `o` | Open PR |
 | `checks` | `x` | Check CI |
-| `merge` | `m` | Merge and rotate |
+| `merge` | `m` | Merge and rotate (to `wip/` or named branch) |
 | `ship` | `cxm` | Commit, check CI, merge |
 | `full` | `cpom` | Commit, push, open PR, merge |
 
@@ -123,7 +123,6 @@ gitbox W
 # check CI
 g-pr-checks
 
-# merge, clean up, start next branch
-g-merge-rotate
-"feat/next-thing" | g-branch-rename
+# merge, clean up, and land on next feature branch in one step
+"feat/next-thing" | g-merge-rotate
 ```

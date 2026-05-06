@@ -17,7 +17,15 @@ process {
     if (-not $baseBranch) { $baseBranch = "main" }
 
     if ($branch -ne $baseBranch) {
-        Write-Host "must be on base branch ($baseBranch); currently on '$branch'"; exit 1
+        if ($branch -match '^wip/') {
+            # wip/ is a known transitional state after merge-rotate; auto-checkout base
+            $coOut = git -C $repo checkout $baseBranch 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "checkout $baseBranch failed: $($coOut -join ' ')"; exit 1
+            }
+        } else {
+            Write-Host "must be on base branch ($baseBranch); currently on '$branch'"; exit 1
+        }
     }
 
     $pullOut = git -C $repo pull origin $baseBranch 2>&1

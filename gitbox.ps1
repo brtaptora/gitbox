@@ -21,7 +21,7 @@ $FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = $true  }
 $FlagMap['p'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
 $FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = $true  }
 $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
-$FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = $false }
+$FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional' }
 $FlagMap['Q'] = @{ Script = 'g-status.ps1';         NeedsArg = $false }
 $FlagMap['S'] = @{ Script = 'g-matrix-scan.ps1';    NeedsArg = $false }
 $FlagMap['B'] = @{ Script = 'g-backlog.ps1';        NeedsArg = $false }
@@ -50,8 +50,8 @@ foreach ($f in $CanonicalOrder) {
     }
 }
 
-# Verify arg count before executing anything
-$argSteps = @($steps | Where-Object { $_.Info.NeedsArg })
+# Verify arg count before executing anything; 'optional' flags are not counted as required
+$argSteps = @($steps | Where-Object { $_.Info.NeedsArg -eq $true })
 $argCount  = if ($Rest) { $Rest.Count } else { 0 }
 if ($argCount -lt $argSteps.Count) {
     $missing = $argSteps[$argCount]
@@ -73,7 +73,9 @@ foreach ($step in $mutating) {
     $script = Join-Path $PSScriptRoot $step.Info.Script
     $name   = $step.Info.Script -replace '\.ps1$','' -replace '^g-',''
 
-    if ($step.Info.NeedsArg) {
+    if ($step.Info.NeedsArg -eq $true) {
+        $argQueue.Dequeue() | & $script
+    } elseif ($step.Info.NeedsArg -eq 'optional' -and $argQueue.Count -gt 0) {
         $argQueue.Dequeue() | & $script
     } else {
         & $script
