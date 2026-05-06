@@ -46,6 +46,14 @@ function Get-GitCapabilities {
     & (Join-Path $PSScriptRoot 'g-capabilities.ps1')
 }
 
+function Rename-GitBranch {
+    param(
+        [Parameter(ValueFromPipeline, Mandatory)]
+        [string]$Name
+    )
+    process { $Name | & (Join-Path $PSScriptRoot 'g-branch-rename.ps1') }
+}
+
 Set-Alias -Name 'g-status'         -Value 'Get-GitStatus'
 Set-Alias -Name 'g-commit-push'    -Value 'Push-GitCommit'
 Set-Alias -Name 'g-open-pr'        -Value 'New-GitPullRequest'
@@ -54,3 +62,4 @@ Set-Alias -Name 'g-matrix-scan'    -Value 'Get-GitMatrix'
 Set-Alias -Name 'g-matrix-resolve' -Value 'Resolve-GitMatrix'
 Set-Alias -Name 'g-backlog'        -Value 'Get-GitBacklog'
 Set-Alias -Name 'g-capabilities'   -Value 'Get-GitCapabilities'
+Set-Alias -Name 'g-branch-rename'  -Value 'Rename-GitBranch'
