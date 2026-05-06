@@ -26,7 +26,9 @@ process {
     }
 
     $url = gh @prArgs 2>$null
+    if ($LASTEXITCODE -ne 0) { Write-Host "pr create failed"; exit 1 }
     $number = $url -replace ".*/pull/", ""
 
     Write-Host "PR #$number opened |$url"
+    exit 0
 }

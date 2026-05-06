@@ -57,3 +57,4 @@ if ($repoMeta) {
 $hash = "$class|$dirty|a$ahead|b$behind|$push|$prState"
 Write-Host $hash
 $hash | & "$PSScriptRoot\g-matrix-resolve.ps1"
+exit $LASTEXITCODE
