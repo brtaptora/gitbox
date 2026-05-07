@@ -17,8 +17,7 @@ $class = if ($branch -eq $baseBranch)    { "B" }
 # --- dirty + secret detection ---
 $dirtyFiles = git -C $repo status --porcelain 2>$null | Where-Object { $_ -ne "" }
 $dirtyCount = $dirtyFiles.Count
-$secretPatterns = '\.env$|\.key$|\.pem$|\.pfx$|\.p12$|credentials|secrets?\.|id_rsa|id_ed25519'
-$secretFiles = $dirtyFiles | Where-Object { $_ -match $secretPatterns }
+$secretFiles = $dirtyFiles | Where-Object { $_ -match $SecretPattern }
 $dirty = if ($secretFiles.Count -gt 0) { "s$dirtyCount" }
          elseif ($dirtyCount -gt 0)    { "d$dirtyCount" }
          else                          { "c" }

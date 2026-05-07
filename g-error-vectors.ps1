@@ -1,3 +1,5 @@
+$SecretPattern = '\.env$|\.key$|\.pem$|\.pfx$|\.p12$|credentials|secrets?\.|id_rsa|id_ed25519|\.token$|\.npmrc$|\.pypirc$|\.dockercfg$|password$|apikey|oauth|jwt|\.aws[/\\]|\.kube[/\\]|\.ssh[/\\]'
+
 $ErrorVectors = @{
     B_CLASS   = @('no feature branch', 'currently on base branch', 'on default branch')
     W_CLASS   = @('no rename script', 'currently on wip branch', 'wip branch detected')
