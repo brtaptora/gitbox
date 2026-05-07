@@ -5,7 +5,7 @@
 . (Join-Path $PSScriptRoot "g-error-vectors.ps1")
 
 $scripts = Get-ChildItem -Path $PSScriptRoot -Filter 'g-*.ps1' |
-    Where-Object { $_.Name -notin 'g-capabilities.ps1','g-error-vectors.ps1' } |
+    Where-Object { $_.Name -notin 'g-capabilities.ps1','g-error-vectors.ps1','g-registry.ps1' } |
     Sort-Object Name
 
 $capMap = @{}
