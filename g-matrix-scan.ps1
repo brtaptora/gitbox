@@ -1,6 +1,8 @@
 # Scans repo state and emits a status hash, then pipes it through g-matrix-resolve.
 # Output: hash on line 1, recommended action on line 2.
 
+. (Join-Path $PSScriptRoot 'g-error-vectors.ps1')
+
 $repo = Get-Location
 
 $branch = git -C $repo branch --show-current 2>$null
