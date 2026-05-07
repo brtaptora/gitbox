@@ -52,7 +52,7 @@ Arguments are positional and consumed left-to-right by flags that need one.
 | `checks` | `x` | Check CI |
 | `merge` | `m` | Merge and rotate (to `wip/` or named branch) |
 | `ship` | `cxm` | Commit, check CI, merge |
-| `full` | `cpom` | Commit, push, open PR, merge |
+| `full` | `cpoxm` | Commit, push, open PR, check CI, merge |
 
 ### Examples
 
