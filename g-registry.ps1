@@ -66,5 +66,5 @@ $WorkflowRegistry = [ordered]@{
     checks  = 'x'
     merge   = 'm'
     ship    = 'cxm'
-    full    = 'cpom'
+    full    = 'cpoxm'
 }
