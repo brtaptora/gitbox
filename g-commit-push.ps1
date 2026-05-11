@@ -23,7 +23,8 @@ process {
     $staged = (git -C $repo diff --cached --name-only 2>$null | Measure-Object -Line).Lines
     if ($staged -eq 0) { Write-Host "nothing to commit"; exit 0 }
 
-    git -C $repo commit -m $Message 2>$null | Out-Null
+    git -C $repo commit -m $Message 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Host "commit failed"; exit 1 }
     $sha = git -C $repo rev-parse --short HEAD 2>$null
 
     $pushOut = git -C $repo push -u origin $branch 2>&1
