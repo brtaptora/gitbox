@@ -2,6 +2,23 @@
 
 PowerShell git workflow suite. Works standalone (call `.ps1` files directly) or as a module (`Import-Module .\gitbox.psd1`).
 
+## Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| PowerShell 5.1+ | Included in Windows 10+; available on macOS/Linux via `pwsh` |
+| git | Must be on PATH |
+| [GitHub CLI (gh)](https://cli.github.com/) | v2.20+ recommended (required for `--json` flag on `gh pr checks`) |
+| gh authentication | Run `gh auth login` before first use; requires `repo` scope |
+| GitHub remote named `origin` | PR and merge commands require the remote to be a GitHub repository |
+
+Verify setup:
+
+```powershell
+git --version
+gh auth status
+```
+
 ## Install as module
 
 ```powershell
@@ -107,6 +124,52 @@ gitbox W
 | `g-matrix-resolve` | `Resolve-GitMatrix` | state hash via pipeline | Resolve hash to recommended next action |
 | `g-backlog` | `Get-GitBacklog` | none | List all unhandled workflow states |
 | `g-capabilities` | `Get-GitCapabilities` | none | Score script coverage against known gap requirements |
+
+## Error recovery
+
+### Rebase conflict (g-branch-sync)
+
+`g-branch-sync` aborts automatically on conflict and restores the working tree. Resolve the conflict manually then continue:
+
+```powershell
+# after g-branch-sync reports "rebase conflict"
+git status                   # see conflicted files
+# edit files to resolve conflicts
+git add <resolved-files>
+git rebase --continue
+```
+
+### Secret guard block (g-commit-push)
+
+If `g-commit-push` reports `secret guard: blocked`, the listed files match a sensitive filename pattern. Remove or rename them before retrying:
+
+```powershell
+# after secret guard block
+git status                   # confirm which files are present
+# move or delete the flagged files
+"your commit message" | g-commit-push
+```
+
+### Merge failure (g-merge-rotate)
+
+If `g-merge-rotate` reports `merge failed`, the PR was not merged and the branch is preserved. Check the failure reason and retry:
+
+```powershell
+# after merge failed
+g-pr-checks                  # inspect failing CI checks
+gh pr view                   # read any merge blockers (review required, conflicts)
+# resolve the blocker, then:
+"next-branch-name" | g-merge-rotate
+```
+
+### gh authentication error
+
+If any script reports `authentication failed` or `permission denied` on a `gh` call:
+
+```powershell
+gh auth login                # re-authenticate
+gh auth status               # verify scope includes repo
+```
 
 ## Typical workflow
 
