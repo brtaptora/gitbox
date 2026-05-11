@@ -3,7 +3,9 @@ param(
     [string]$Message
 )
 
-. (Join-Path $PSScriptRoot 'g-error-vectors.ps1')
+begin {
+    . (Join-Path $PSScriptRoot 'g-error-vectors.ps1')
+}
 
 process {
     $repo = Get-Location

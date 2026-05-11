@@ -73,7 +73,7 @@ foreach ($step in $mutating) {
     $script = Join-Path $PSScriptRoot $step.Info.Script
     $name   = $step.Info.Script -replace '\.ps1$','' -replace '^g-',''
 
-    $forceArg = if ($step.Info.Force) { @('-Force') } else { @() }
+    $forceArg = if ($step.Info.Force) { @{ Force = $true } } else { @{} }
     if ($step.Info.NeedsArg -eq $true) {
         $argQueue.Dequeue() | & $script @forceArg
     } elseif ($step.Info.NeedsArg -eq 'optional' -and $argQueue.Count -gt 0) {
