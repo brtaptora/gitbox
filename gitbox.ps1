@@ -14,7 +14,7 @@ param(
 
 # Case-sensitive: lowercase=mutating, uppercase=diagnostic; 's' and 'S' are distinct keys
 $FlagMap = [System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)
-$FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true  }
+$FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true;  Force = $true }
 $FlagMap['r'] = @{ Script = 'g-branch-rename.ps1';  NeedsArg = $true  }
 $FlagMap['s'] = @{ Script = 'g-branch-sync.ps1';    NeedsArg = $false }
 $FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = $true  }
@@ -73,12 +73,13 @@ foreach ($step in $mutating) {
     $script = Join-Path $PSScriptRoot $step.Info.Script
     $name   = $step.Info.Script -replace '\.ps1$','' -replace '^g-',''
 
+    $forceArg = if ($step.Info.Force) { @('-Force') } else { @() }
     if ($step.Info.NeedsArg -eq $true) {
-        $argQueue.Dequeue() | & $script
+        $argQueue.Dequeue() | & $script @forceArg
     } elseif ($step.Info.NeedsArg -eq 'optional' -and $argQueue.Count -gt 0) {
-        $argQueue.Dequeue() | & $script
+        $argQueue.Dequeue() | & $script @forceArg
     } else {
-        & $script
+        & $script @forceArg
     }
 
     $ran.Add($flag)
