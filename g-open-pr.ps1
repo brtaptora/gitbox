@@ -18,6 +18,12 @@ process {
     $baseBranch = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
     if (-not $baseBranch) { $baseBranch = "main" }
 
+    $existing = gh pr list --repo $repoName --head $branch --json number,url 2>$null | ConvertFrom-Json
+    if ($existing -and $existing.Count -gt 0) {
+        Write-Host "PR #$($existing[0].number) already open |$($existing[0].url)"
+        exit 0
+    }
+
     $prArgs = @("pr", "create", "--repo", $repoName, "--title", $Title, "--base", $baseBranch)
     if ($Body) {
         $prArgs += @("--body", $Body)
