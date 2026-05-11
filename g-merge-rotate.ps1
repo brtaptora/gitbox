@@ -6,7 +6,7 @@ param(
 $repo = Get-Location
 
 $remote = git -C $repo remote get-url origin 2>$null
-if ($remote -notmatch "github\.com") {
+if ($remote -notmatch '[/@]github\.com[:/]') {
     Write-Host "remote is not GitHub: $remote"; exit 1
 }
 
