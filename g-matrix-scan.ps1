@@ -1,6 +1,8 @@
 # Scans repo state and emits a status hash, then pipes it through g-matrix-resolve.
 # Output: hash on line 1, recommended action on line 2.
 
+. (Join-Path $PSScriptRoot 'g-error-vectors.ps1')
+
 $repo = Get-Location
 
 $branch = git -C $repo branch --show-current 2>$null
@@ -17,8 +19,7 @@ $class = if ($branch -eq $baseBranch)    { "B" }
 # --- dirty + secret detection ---
 $dirtyFiles = git -C $repo status --porcelain 2>$null | Where-Object { $_ -ne "" }
 $dirtyCount = $dirtyFiles.Count
-$secretPatterns = '\.env$|\.key$|\.pem$|\.pfx$|\.p12$|credentials|secrets?\.|id_rsa|id_ed25519'
-$secretFiles = $dirtyFiles | Where-Object { $_ -match $secretPatterns }
+$secretFiles = $dirtyFiles | Where-Object { $_ -match $SecretPattern }
 $dirty = if ($secretFiles.Count -gt 0) { "s$dirtyCount" }
          elseif ($dirtyCount -gt 0)    { "d$dirtyCount" }
          else                          { "c" }
