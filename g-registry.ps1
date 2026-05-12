@@ -89,3 +89,42 @@ function Get-GitboxConfig {
     if (-not $base) { $base = $default }
     return @{ BaseBranch = $base; DefaultBranch = $default }
 }
+
+function Get-GitRepoState {
+    param([string]$RepoPath = (Get-Location))
+    $branch = git -C $RepoPath branch --show-current 2>$null
+    if (-not $branch) { return $null }
+
+    $baseBranch = (Get-GitboxConfig -RepoPath $RepoPath).BaseBranch
+    $repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
+
+    $ahead = 0; $behind = 0
+    if (git -C $RepoPath rev-parse --verify "origin/$baseBranch" 2>$null) {
+        $ahead  = (git -C $RepoPath rev-list "origin/${baseBranch}..HEAD" 2>$null | Measure-Object -Line).Lines
+        $behind = (git -C $RepoPath rev-list "HEAD..origin/${baseBranch}" 2>$null | Measure-Object -Line).Lines
+    }
+
+    $dirtyFiles   = @(git -C $RepoPath status --porcelain 2>$null | Where-Object { $_ })
+    $remoteBranch = git -C $RepoPath rev-parse --verify "origin/$branch" 2>$null
+    $unpushed     = if ($remoteBranch) {
+        (git -C $RepoPath rev-list "origin/${branch}..HEAD" 2>$null | Measure-Object -Line).Lines
+    } else { -1 }
+
+    $pr = $null
+    if ($repoName) {
+        $prJson = gh pr list --repo $repoName --head $branch --json number,state,title,reviewDecision,statusCheckRollup 2>$null | ConvertFrom-Json
+        if ($prJson -and $prJson.Count -gt 0) { $pr = $prJson[0] }
+    }
+
+    return [pscustomobject]@{
+        Branch       = $branch
+        BaseBranch   = $baseBranch
+        RepoName     = $repoName
+        Ahead        = $ahead
+        Behind       = $behind
+        DirtyFiles   = $dirtyFiles
+        RemoteBranch = $remoteBranch
+        Unpushed     = $unpushed
+        PR           = $pr
+    }
+}
