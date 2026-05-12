@@ -1,7 +1,8 @@
 # Flag-stack orchestrator. Routes flag sequences to scripts in canonical order.
-# Usage: gitbox <flags|workflow> [arg ...]
+# Usage: gitbox <flags|workflow> [arg ...] [-AllowWip]
 # Flags: b=branch-create r=rename s=sync c=commit u=push o=open-pr x=pr-checks m=merge-rotate
 #        Q=status S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize X=run-logs
+# -AllowWip: skip the wip-branch rename prompt and commit on the wip branch as-is
 
 param(
     [Parameter(Position=0, Mandatory)]
@@ -9,7 +10,8 @@ param(
     [Parameter(ValueFromPipeline)]
     [string]$PipelineArg,
     [Parameter(Position=1, ValueFromRemainingArguments)]
-    [string[]]$Rest
+    [string[]]$Rest,
+    [switch]$AllowWip
 )
 
 . (Join-Path $PSScriptRoot 'g-error-vectors.ps1')
@@ -105,8 +107,14 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
         $skipFlags['x'] = ($hPR -ne 'PRX')
 
         if ($hClass -eq 'W' -and ($steps | Where-Object { $_.Flag -eq 'c' })) {
-            Write-Host "gitbox: on unnamed wip branch -- rename to a feature name first: gitbox r <name>"
-            exit 1
+            if (-not $AllowWip) {
+                $wipBranch = git branch --show-current 2>$null
+                $newName = Read-Host "gitbox: on wip branch '$wipBranch'. Enter new branch name (Enter to proceed as wip)"
+                if ($newName) {
+                    $newName | & (Join-Path $PSScriptRoot 'g-branch-rename.ps1')
+                    if ($LASTEXITCODE -ne 0) { Write-Host "gitbox: rename failed"; exit $LASTEXITCODE }
+                }
+            }
         }
     }
 }

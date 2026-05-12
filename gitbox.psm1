@@ -46,6 +46,10 @@ function Get-GitCapabilities {
     & (Join-Path $PSScriptRoot 'g-capabilities.ps1')
 }
 
+function Get-GitRunLogs {
+    & (Join-Path $PSScriptRoot 'g-run-logs.ps1')
+}
+
 function Get-GitPullRequestChecks {
     & (Join-Path $PSScriptRoot 'g-pr-checks.ps1')
 }
@@ -82,6 +86,7 @@ Set-Alias -Name 'g-matrix-scan'    -Value 'Get-GitMatrix'
 Set-Alias -Name 'g-matrix-resolve' -Value 'Resolve-GitMatrix'
 Set-Alias -Name 'g-backlog'        -Value 'Get-GitBacklog'
 Set-Alias -Name 'g-capabilities'   -Value 'Get-GitCapabilities'
+Set-Alias -Name 'g-run-logs'       -Value 'Get-GitRunLogs'
 Set-Alias -Name 'g-branch-rename'  -Value 'Rename-GitBranch'
 Set-Alias -Name 'g-branch-sync'    -Value 'Sync-GitBranch'
 Set-Alias -Name 'g-push'           -Value 'Push-GitBranch'
