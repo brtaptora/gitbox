@@ -28,8 +28,8 @@ process {
     }
 
     $bodyValue = if ($Body) { $Body } else { "" }
-    $url = gh pr create --repo $repoName --title $Title --base $baseBranch --body $bodyValue 2>$null
-    if ($LASTEXITCODE -ne 0) { Write-Host "pr create failed"; exit 1 }
+    $url = gh pr create --repo $repoName --title $Title --base $baseBranch --body $bodyValue 2>&1
+    if ($LASTEXITCODE -ne 0) { Write-Host "pr create failed"; $url | ForEach-Object { Write-Host "  $_" }; exit 1 }
     $number = $url -replace ".*/pull/", ""
 
     Write-Host "PR #$number opened |$url"

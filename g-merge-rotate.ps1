@@ -34,18 +34,23 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # switch to base branch and pull
-git -C $repo checkout $baseBranch 2>$null | Out-Null
-git -C $repo pull origin $baseBranch 2>$null | Out-Null
+$checkoutOut = git -C $repo checkout $baseBranch 2>&1
+if ($LASTEXITCODE -ne 0) { Write-Host "checkout $baseBranch failed"; $checkoutOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+$pullOut = git -C $repo pull origin $baseBranch 2>&1
+if ($LASTEXITCODE -ne 0) { Write-Host "pull origin/$baseBranch failed"; $pullOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
 
-# delete remote branch
-git -C $repo push origin --delete $branch 2>$null | Out-Null
+# delete remote branch (GitHub may already have deleted it on merge)
+$delRemoteOut = git -C $repo push origin --delete $branch 2>&1
+if ($LASTEXITCODE -ne 0) { Write-Host "  warning: remote branch delete failed (may already be deleted)" }
 
 # delete local branch
-git -C $repo branch -d $branch 2>$null | Out-Null
+$delLocalOut = git -C $repo branch -d $branch 2>&1
+if ($LASTEXITCODE -ne 0) { Write-Host "  warning: local branch delete failed: $($delLocalOut -join ' ')" }
 
 # create next branch — use supplied name or fall back to wip/ timestamp
 $newBranch = if ($Name) { $Name } else { "wip/$(Get-Date -Format 'MMdd-HHmm')" }
-git -C $repo checkout -b $newBranch 2>$null | Out-Null
+$newBranchOut = git -C $repo checkout -b $newBranch 2>&1
+if ($LASTEXITCODE -ne 0) { Write-Host "checkout -b $newBranch failed"; $newBranchOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
 
 Write-Host "merged #$prNumber |deleted $branch |new branch $newBranch"
 exit 0
