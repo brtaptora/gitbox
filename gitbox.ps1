@@ -1,7 +1,7 @@
 # Flag-stack orchestrator. Routes flag sequences to scripts in canonical order.
 # Usage: gitbox <flags|workflow> [arg ...]
 # Flags: b=branch-create r=rename s=sync c=commit u=push o=open-pr x=pr-checks m=merge-rotate
-#        Q=status S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize
+#        Q=status S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize X=run-logs
 
 param(
     [Parameter(Position=0, Mandatory)]
@@ -30,8 +30,9 @@ $FlagMap['B'] = @{ Script = 'g-backlog.ps1';        NeedsArg = $false }
 $FlagMap['C'] = @{ Script = 'g-capabilities.ps1';   NeedsArg = $false }
 $FlagMap['W'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['O'] = @{ Script = $null;                  NeedsArg = $false }
+$FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','u','o','x','m','Q','S','B','C','W','O')
+$CanonicalOrder = [string[]]@('b','r','s','c','u','o','x','m','Q','S','B','C','W','O','X')
 
 # Resolve workflow name or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) { $WorkflowRegistry[$Spec] } else { $Spec.TrimStart('-') }
