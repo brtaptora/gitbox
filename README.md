@@ -19,6 +19,24 @@ git --version
 gh auth status
 ```
 
+## Configuration
+
+Place `.gitbox.json` in the repo root to declare the branch topology for that repo:
+
+```json
+{
+  "BaseBranch": "develop",
+  "DefaultBranch": "main"
+}
+```
+
+| Field | Default | Purpose |
+|-------|---------|---------|
+| `BaseBranch` | value of `DefaultBranch` | Branch that feature branches are created from and PRs target |
+| `DefaultBranch` | result of `gh repo view --json defaultBranchRef` | Release / trunk branch; fallback when `BaseBranch` is absent |
+
+When no config file exists both fields fall back to `gh repo view`. Omit the file entirely for single-trunk repos where base and default are the same branch.
+
 ## Install as module
 
 ```powershell
@@ -124,6 +142,90 @@ gitbox W
 | `g-matrix-resolve` | `Resolve-GitMatrix` | state hash via pipeline | Resolve hash to recommended next action |
 | `g-backlog` | `Get-GitBacklog` | none | List all unhandled workflow states |
 | `g-capabilities` | `Get-GitCapabilities` | none | Score script coverage against known gap requirements |
+
+## Matrix internals
+
+`g-matrix-scan`, `g-matrix-resolve`, `g-backlog`, and `g-capabilities` operate on a compact state hash that encodes the full repo situation in one string.
+
+### State hash format
+
+```
+<class>|<dirty>|a<N>|b<N>|<push>|<PR>
+```
+
+Example: `F|d3|a2|b0|U|PR-`
+
+| Segment | Values | Meaning |
+|---------|--------|---------|
+| `class` | `B` `F` `W` | Branch class: **B**ase, **F**eature, **W**ip |
+| `dirty` | `c` `dN` `sN` | Working tree: **c**lean, **d**irty N files, **s**ecret-pattern match N files |
+| `a<N>` | `a0` `a1` … | Commits ahead of `origin/<base>` |
+| `b<N>` | `b0` `b1` … | Commits behind `origin/<base>` |
+| `push` | `P` `U` | Remote branch: **P**ushed (up to date), **U**npushed (ahead or no remote ref) |
+| `PR` | `PR-` `PRD` `PRO` `PRX` `PRA` | PR state: none, **D**raft, **O**pen, checks failed (X), **A**pproved |
+
+The full state space is the Cartesian product of all six dimensions:
+
+```
+S = C × D × A × B × P × R
+  = {B,F,W} × {c,dN,sN} × {a0,a1,…} × {b0,b1,…} × {P,U} × {PR-,PRD,PRO,PRX,PRA}
+```
+
+### Resolve priority (`g-matrix-resolve`)
+
+`g-matrix-resolve` accepts a hash and returns the recommended next action. Rules fire top-to-bottom; the first match wins:
+
+1. Class `B` (on base branch) — prompt to create a feature branch
+2. Class `W` (on wip branch) — prompt to rename to a feature branch
+3. Class `F`:
+   1. Secret files present (`sN`) — block until secrets removed
+   2. Behind base (`b>0`) — rebase first
+   3. Checks failed (`PRX`) — fix CI
+   4. PR open or approved (`PRO` / `PRA`) — commit if dirty, then merge-rotate
+   5. Draft PR (`PRD`) — commit if dirty, else mark ready
+   6. No PR (`PR-`) — commit if dirty; push+open-PR if pushed ahead; push first if unpushed ahead; nothing to do if clean and not ahead
+
+Priority order encodes a dependency graph: you cannot safely open a PR while behind, and you cannot merge while checks are failing. Each rule removes the precondition that blocks the next step.
+
+### Backlog sweep (`g-backlog`)
+
+`g-backlog` discovers gaps by running `g-matrix-resolve` against every valid state combination rather than parsing source text. Using two representative values per numeric dimension (0 and 1) the enumeration covers:
+
+```
+|S| = |C| × |D| × |A| × |B| × |P| × |R|
+    =   3  ×   3  ×  2  ×  2  ×  2  ×  5
+    = 360 combinations
+```
+
+Any combination that produces a `GAP[UNCLASSIFIED]` line is an unhandled state. The script also prints workflow coverage: for each named workflow it computes which gap dimensions its flag sequence satisfies.
+
+Workflow W covers gap dimension G when the union of capability sets across all flags in W is a superset of G's requirements:
+
+```
+covers(W, G) = true  iff  ⋃_{f ∈ flags(W)} caps(f)  ⊇  requirements(G)
+```
+
+### Capabilities scan (`g-capabilities`)
+
+`g-capabilities` reads every `g-*.ps1` script line by line, matches each non-comment line against the regex patterns in `$CapabilityPatterns`, and records which git/gh operations each script can perform.
+
+Gap coverage score for a script S against gap dimension G:
+
+```
+score(S, G) = |caps(S) ∩ requirements(G)| / |requirements(G)|
+```
+
+A score of 1.0 means the script alone satisfies all requirements for that gap. Scores below 1.0 indicate partial coverage; the missing capabilities are shown inline.
+
+The optimization score (`gitbox O`) measures capability density — how much work a script does relative to its size:
+
+```
+density(S) = |caps(S)| / non-blank-non-comment-lines(S)
+```
+
+Scripts with low density and non-zero capabilities are consolidation candidates.
+
+Known limitation: splatted calls (`gh @args`) are not resolved by static analysis. `g-open-pr.ps1` uses splatting for `gh pr create`, so `gitbox W` reports `caps: (none)` for the `pr` workflow even though it does invoke `gh pr create`.
 
 ## Error recovery
 
