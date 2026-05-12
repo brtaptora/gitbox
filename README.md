@@ -2,6 +2,73 @@
 
 PowerShell git workflow suite. Works standalone (call `.ps1` files directly) or as a module (`Import-Module .\gitbox.psd1`).
 
+## Quick start
+
+Each flag maps to one operation. Run them individually or stack them in a single call:
+
+```powershell
+# create a feature branch
+gitbox b "feat/my-feature"
+
+# commit all changes and push
+gitbox c "fix the thing"
+
+# open a PR
+gitbox o "Fix the thing"
+
+# check CI
+gitbox x
+
+# merge, delete branch, land on next wip branch
+gitbox m
+```
+
+Flags stack — multiple flags in one call, args consumed left-to-right:
+
+```powershell
+# commit then open PR (two args: one for c, one for o)
+gitbox co "fix the thing" "Fix the thing"
+```
+
+Named workflows are pre-set flag sequences:
+
+```powershell
+# ship = c + x + m: commit, check CI, merge
+gitbox ship "all done"
+
+# full = c + u + o + x + m: commit, push, open PR, check CI, merge
+gitbox full "all done" "Fix the thing"
+```
+
+### Complete feature branch cycle
+
+Starting from the base branch:
+
+```powershell
+gitbox b "feat/my-feature"   # create feature branch
+
+# ... make changes ...
+
+gitbox c "fix the thing"     # stage all, commit, push
+gitbox o "Fix the thing"     # open PR
+gitbox x                     # check CI
+gitbox m                     # merge, delete branch, land on wip
+```
+
+Steps 2–5 compress once a PR is open:
+
+```powershell
+gitbox ship "fix the thing"              # c + x + m
+```
+
+Or the full journey in one call when there is no PR yet:
+
+```powershell
+gitbox full "fix the thing" "Fix the thing"   # c + u + o + x + m
+```
+
+The orchestrator section below covers all flags, stacking rules, and skip behavior in detail.
+
 ## Prerequisites
 
 | Requirement | Notes |
@@ -65,6 +132,7 @@ gitbox <flags|workflow> [arg ...] [-AllowWip]
 | `o` | Open PR against default branch | PR title |
 | `x` | Report CI check results | — |
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
+| `z` | Release: open PR to default branch, check CI, merge, tag, push tag | version (optional) |
 | `Q` | One-line repo status | — |
 | `S` | Emit state hash and recommended action | — |
 | `B` | List unhandled workflow states | — |
@@ -89,6 +157,7 @@ Arguments are positional and consumed left-to-right by flags that need one.
 | `merge` | `m` | Merge and rotate (to `wip/` or named branch) |
 | `ship` | `cxm` | Commit, check CI, merge |
 | `full` | `cuoxm` | Commit, push, open PR, check CI, merge |
+| `release` | `z` | Promote base branch to default and tag |
 
 ### Workflow-prefix compounds
 
@@ -189,6 +258,52 @@ gitbox X
 | `g-capabilities` | `Get-GitCapabilities` | none | Score script coverage against known gap requirements |
 | `g-run-logs` | `Get-GitRunLogs` | none | Fetch most recent CI run logs grouped by step; falls back to base branch when current branch has no runs |
 
+## Error recovery
+
+### Rebase conflict (g-branch-sync)
+
+`g-branch-sync` aborts automatically on conflict and restores the working tree. Resolve the conflict manually then continue:
+
+```powershell
+# after g-branch-sync reports "rebase conflict"
+git status                   # see conflicted files
+# edit files to resolve conflicts
+git add <resolved-files>
+git rebase --continue
+```
+
+### Secret guard block (g-commit-push)
+
+If `g-commit-push` reports `secret guard: blocked`, the listed files match a sensitive filename pattern. Remove or rename them before retrying:
+
+```powershell
+# after secret guard block
+git status                   # confirm which files are present
+# move or delete the flagged files
+"your commit message" | g-commit-push
+```
+
+### Merge failure (g-merge-rotate)
+
+If `g-merge-rotate` reports `merge failed`, the PR was not merged and the branch is preserved. Check the failure reason and retry:
+
+```powershell
+# after merge failed
+g-pr-checks                  # inspect failing CI checks
+gh pr view                   # read any merge blockers (review required, conflicts)
+# resolve the blocker, then:
+"next-branch-name" | g-merge-rotate
+```
+
+### gh authentication error
+
+If any script reports `authentication failed` or `permission denied` on a `gh` call:
+
+```powershell
+gh auth login                # re-authenticate
+gh auth status               # verify scope includes repo
+```
+
 ## Matrix internals
 
 `g-matrix-scan`, `g-matrix-resolve`, `g-backlog`, and `g-capabilities` operate on a compact state hash that encodes the full repo situation in one string.
@@ -243,13 +358,15 @@ Priority order encodes a dependency graph: you cannot safely open a PR while beh
     = 360 combinations
 ```
 
-Any combination that produces a `GAP[UNCLASSIFIED]` line is an unhandled state. The script also prints workflow coverage: for each named workflow it computes which gap dimensions its flag sequence satisfies.
+Any combination that produces a `GAP[UNCLASSIFIED]` line is an unhandled state; `g-backlog` exits non-zero and CI fails. Classified gaps are suppressed automatically when the registered capabilities cover them (see below). The workflow coverage table is always printed regardless of gap count.
 
 Workflow W covers gap dimension G when the union of capability sets across all flags in W is a superset of G's requirements:
 
 ```
 covers(W, G) = true  iff  ⋃_{f ∈ flags(W)} caps(f)  ⊇  requirements(G)
 ```
+
+`g-matrix-resolve` applies the same check at runtime: before emitting `GAP[dim]` it tests whether the union of all registered `$FlagCapabilities` satisfies `$GapRequirements[dim]`. If coverage exists the label is suppressed. Adding a new script with the right capabilities automatically closes the gap — no edits to `g-matrix-resolve` required.
 
 ### Capabilities scan (`g-capabilities`)
 
@@ -271,69 +388,6 @@ density(S) = |caps(S)| / non-blank-non-comment-lines(S)
 
 Scripts with low density and non-zero capabilities are consolidation candidates.
 
+When a script calls another `g-*.ps1` via `& (Join-Path $PSScriptRoot '...')`, the referenced script's capabilities are inherited recursively. A cycle guard prevents infinite loops. Composite scripts like `g-release.ps1` therefore automatically surface the capabilities of every script they invoke, with no manual bookkeeping.
+
 Known limitation: splatted calls (`gh @args`) are not resolved by static analysis. Scripts that build argument arrays and splat them will show no capabilities in `gitbox W`. Prefer direct invocations (`gh pr create ...`) so the scanner can detect them.
-
-## Error recovery
-
-### Rebase conflict (g-branch-sync)
-
-`g-branch-sync` aborts automatically on conflict and restores the working tree. Resolve the conflict manually then continue:
-
-```powershell
-# after g-branch-sync reports "rebase conflict"
-git status                   # see conflicted files
-# edit files to resolve conflicts
-git add <resolved-files>
-git rebase --continue
-```
-
-### Secret guard block (g-commit-push)
-
-If `g-commit-push` reports `secret guard: blocked`, the listed files match a sensitive filename pattern. Remove or rename them before retrying:
-
-```powershell
-# after secret guard block
-git status                   # confirm which files are present
-# move or delete the flagged files
-"your commit message" | g-commit-push
-```
-
-### Merge failure (g-merge-rotate)
-
-If `g-merge-rotate` reports `merge failed`, the PR was not merged and the branch is preserved. Check the failure reason and retry:
-
-```powershell
-# after merge failed
-g-pr-checks                  # inspect failing CI checks
-gh pr view                   # read any merge blockers (review required, conflicts)
-# resolve the blocker, then:
-"next-branch-name" | g-merge-rotate
-```
-
-### gh authentication error
-
-If any script reports `authentication failed` or `permission denied` on a `gh` call:
-
-```powershell
-gh auth login                # re-authenticate
-gh auth status               # verify scope includes repo
-```
-
-## Typical workflow
-
-```powershell
-# start work
-"feat/my-feature" | g-branch-create
-
-# commit and push changes
-"fix the thing" | g-commit-push
-
-# open PR
-"Fix the thing" | g-open-pr -Body "Closes #42"
-
-# check CI
-g-pr-checks
-
-# merge, clean up, and land on next feature branch in one step
-"feat/next-thing" | g-merge-rotate
-```
