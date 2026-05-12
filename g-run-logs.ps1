@@ -45,7 +45,7 @@ foreach ($line in $logLines) {
     if ($parts.Count -lt 3) { continue }
     $step    = $parts[1].Trim()
     $content = $parts[2] -replace '^\d{4}-\d{2}-\d{2}T[\d:.]+Z ', ''
-    if (-not $stepOutputs.ContainsKey($step)) {
+    if (-not $stepOutputs.Contains($step)) {
         $stepOutputs[$step] = [System.Collections.Generic.List[string]]::new()
     }
     $stepOutputs[$step].Add($content)
