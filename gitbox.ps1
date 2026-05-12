@@ -92,6 +92,11 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
         $skipFlags['u'] = ($hPush  -eq 'P')
         $skipFlags['o'] = ($hPR -in @('PRO','PRA'))
         $skipFlags['x'] = ($hPR -ne 'PRX')
+
+        if ($hClass -eq 'W' -and ($steps | Where-Object { $_.Flag -eq 'c' })) {
+            Write-Host "gitbox: on unnamed wip branch -- rename to a feature name first: gitbox r <name>"
+            exit 1
+        }
     }
 }
 
