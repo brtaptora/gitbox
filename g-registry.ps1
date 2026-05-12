@@ -91,7 +91,10 @@ function Get-GitboxConfig {
 }
 
 function Get-GitRepoState {
-    param([string]$RepoPath = (Get-Location))
+    param(
+        [string]$RepoPath = (Get-Location),
+        [int]$RunLimit = 0
+    )
     $branch = git -C $RepoPath branch --show-current 2>$null
     if (-not $branch) { return $null }
 
@@ -116,6 +119,12 @@ function Get-GitRepoState {
         if ($prJson -and $prJson.Count -gt 0) { $pr = $prJson[0] }
     }
 
+    $runs = $null
+    if ($RunLimit -gt 0 -and $repoName) {
+        $runsJson = gh run list --repo $repoName --branch $branch --limit $RunLimit --json databaseId,name,status,conclusion,createdAt 2>$null
+        if ($runsJson) { $runs = $runsJson | ConvertFrom-Json }
+    }
+
     return [pscustomobject]@{
         Branch       = $branch
         BaseBranch   = $baseBranch
@@ -126,5 +135,6 @@ function Get-GitRepoState {
         RemoteBranch = $remoteBranch
         Unpushed     = $unpushed
         PR           = $pr
+        Runs         = $runs
     }
 }
