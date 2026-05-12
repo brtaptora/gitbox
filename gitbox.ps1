@@ -6,6 +6,8 @@
 param(
     [Parameter(Position=0, Mandatory)]
     [string]$Spec,
+    [Parameter(ValueFromPipeline)]
+    [string]$PipelineArg,
     [Parameter(Position=1, ValueFromRemainingArguments)]
     [string[]]$Rest
 )
@@ -52,7 +54,7 @@ foreach ($f in $CanonicalOrder) {
 
 # Verify arg count before executing anything; 'optional' flags are not counted as required
 $argSteps = @($steps | Where-Object { $_.Info.NeedsArg -eq $true })
-$argCount  = if ($Rest) { $Rest.Count } else { 0 }
+$argCount  = ($Rest ? $Rest.Count : 0) + ($PipelineArg ? 1 : 0)
 if ($argCount -lt $argSteps.Count) {
     $missing = $argSteps[$argCount]
     $name    = $missing.Info.Script -replace '\.ps1$','' -replace '^g-',''
@@ -63,6 +65,7 @@ if ($argCount -lt $argSteps.Count) {
 
 # --- Execute mutating steps ---
 $argQueue = [System.Collections.Generic.Queue[string]]::new()
+if ($PipelineArg) { $argQueue.Enqueue($PipelineArg) }
 if ($Rest) { foreach ($a in $Rest) { $argQueue.Enqueue($a) } }
 
 $mutating = @($steps | Where-Object { $_.Flag -cmatch '[a-z]' })
