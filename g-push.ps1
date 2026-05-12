@@ -11,11 +11,12 @@ if ($branch -eq $baseBranch) {
     Write-Host "on base branch; g-push is for feature branches only"; exit 1
 }
 
-$ahead = (git -C $repo rev-list "origin/${branch}..HEAD" 2>$null | Measure-Object -Line).Lines
-
-# handle untracked remote (branch never pushed)
+# check remote ref before counting so first-push counts against base, not the nonexistent origin/$branch
 $remoteRef = git -C $repo rev-parse --verify "origin/$branch" 2>$null
 $noRemote  = ($LASTEXITCODE -ne 0)
+
+$countBase = if ($noRemote) { "origin/${baseBranch}" } else { "origin/${branch}" }
+$ahead = (git -C $repo rev-list "${countBase}..HEAD" 2>$null | Measure-Object -Line).Lines
 
 if (-not $noRemote -and $ahead -eq 0) {
     Write-Host "nothing to push; origin/$branch is up to date"; exit 0
