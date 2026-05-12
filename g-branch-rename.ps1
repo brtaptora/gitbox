@@ -34,7 +34,8 @@ process {
     }
 
     if ($hadRemote) {
-        git -C $repo push origin --delete $oldName 2>$null | Out-Null
+        $delOut = git -C $repo push origin --delete $oldName 2>&1
+        if ($LASTEXITCODE -ne 0) { Write-Host "  warning: remote branch delete failed: $($delOut -join ' ')" }
     }
 
     Write-Host "renamed $oldName -> $Name"
