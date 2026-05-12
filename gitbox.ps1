@@ -68,10 +68,39 @@ if ($Rest) { foreach ($a in $Rest) { $argQueue.Enqueue($a) } }
 $mutating = @($steps | Where-Object { $_.Flag -cmatch '[a-z]' })
 $ran      = [System.Collections.Generic.List[string]]::new()
 
+# --- Track B: matrix pre-check — skip flags whose work is already done ---
+$skippableFlags = @('b','c','p','o','x')
+$skipFlags = @{}
+$skipReasons = @{
+    'b' = 'already on feature branch'
+    'c' = 'nothing to commit'
+    'p' = 'no unpushed commits'
+    'o' = 'PR already open'
+    'x' = 'checks not failing'
+}
+if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
+    $scanOut = & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') 2>$null 6>&1
+    $hashRaw = ($scanOut | Where-Object { "$_" -match '^[BFW]\|' }) | Select-Object -First 1
+    if ($hashRaw -and "$hashRaw" -match '^([BFW])\|([^|]+)\|a\d+\|b\d+\|([PU])\|(PR[-DXOA]+)$') {
+        $hClass = $Matches[1]; $hDirty = $Matches[2]; $hPush = $Matches[3]; $hPR = $Matches[4]
+        $skipFlags['b'] = ($hClass -eq 'F')
+        $skipFlags['c'] = ($hDirty -eq 'c')
+        $skipFlags['p'] = ($hPush  -eq 'P')
+        $skipFlags['o'] = ($hPR -in @('PRO','PRA'))
+        $skipFlags['x'] = ($hPR -ne 'PRX')
+    }
+}
+
 foreach ($step in $mutating) {
     $flag   = $step.Flag
     $script = Join-Path $PSScriptRoot $step.Info.Script
     $name   = $step.Info.Script -replace '\.ps1$','' -replace '^g-',''
+
+    if ($skipFlags.ContainsKey($flag) -and $skipFlags[$flag]) {
+        Write-Host "skip $flag ($name): $($skipReasons[$flag])"
+        $ran.Add($flag)
+        continue
+    }
 
     $forceArg = if ($step.Info.Force) { @{ Force = $true } } else { @{} }
     if ($step.Info.NeedsArg -eq $true) {
