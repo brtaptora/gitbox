@@ -120,7 +120,10 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
     }
 }
 
-foreach ($step in $mutating) {
+# while loop (not foreach) so $i can hold position and retry the failed step after recovery
+$i = 0
+while ($i -lt $mutating.Count) {
+    $step   = $mutating[$i]
     $flag   = $step.Flag
     $script = Join-Path $PSScriptRoot $step.Info.Script
     $name   = $step.Info.Script -replace '\.ps1$','' -replace '^g-',''
@@ -128,6 +131,7 @@ foreach ($step in $mutating) {
     if ($skipFlags.ContainsKey($flag) -and $skipFlags[$flag]) {
         Write-Host "skip $flag ($name): $($skipReasons[$flag])"
         $ran.Add($flag)
+        $i++
         continue
     }
 
@@ -140,15 +144,57 @@ foreach ($step in $mutating) {
         & $script @forceArg
     }
 
-    $ran.Add($flag)
+    $stepExit = $LASTEXITCODE
+    if ($stepExit -ne 0) {
+        # Consult matrix-resolve for a recoverable next action; one attempt per step to prevent loops
+        $recovered = $false
+        $scanOut   = & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') 2>$null 6>&1
+        $hashLine  = ($scanOut | Where-Object { "$_" -match '^[BFW]\|' }) | Select-Object -First 1
+        if ($hashLine) {
+            $resolveOut = "$hashLine" | & (Join-Path $PSScriptRoot 'g-matrix-resolve.ps1') 6>&1
+            $nextLine   = ($resolveOut | Where-Object { "$_" -match '^\s+next:' }) | Select-Object -First 1
+            if ($nextLine -and "$nextLine" -match 'gitbox\s+([a-z]+)') {
+                $suggestion   = $Matches[1]
+                $recovFlagStr = if ($WorkflowRegistry.Contains($suggestion)) { $WorkflowRegistry[$suggestion] } else { $suggestion }
+                $recoveryFlag = [string]($recovFlagStr.ToCharArray() |
+                    Where-Object { $FlagMap.Contains([string]$_) -and [string]$_ -notin $ran.ToArray() } |
+                    Select-Object -First 1)
+                if ($recoveryFlag) {
+                    $rInfo = $FlagMap[$recoveryFlag]
+                    $rName = $rInfo.Script -replace '\.ps1$','' -replace '^g-',''
+                    Write-Host "  matrix suggests: $("$nextLine".Trim())"
+                    $answer = Read-Host "  run $recoveryFlag ($rName) to recover? [Y/n]"
+                    if ($answer -eq '' -or $answer -match '^[Yy]') {
+                        $rScript = Join-Path $PSScriptRoot $rInfo.Script
+                        if ($rInfo.NeedsArg -eq $true) {
+                            $rArg = Read-Host "  arg for $recoveryFlag ($rName)"
+                            $rArg | & $rScript
+                        } else {
+                            & $rScript
+                        }
+                        if ($LASTEXITCODE -eq 0) {
+                            $recovered = $true
+                            $ran.Add($recoveryFlag)
+                            Write-Host "  recovered -- retrying $flag ($name)"
+                        }
+                    }
+                }
+            }
+        }
 
-    if ($LASTEXITCODE -ne 0) {
-        $notRun    = @($mutating | Where-Object { $_.Flag -notin $ran.ToArray() }) | ForEach-Object { $_.Flag }
-        $notRunStr = if ($notRun) { " |not run: $($notRun -join '')" } else { '' }
-        Write-Host "gitbox $($Spec): step $flag ($name) failed"
-        Write-Host "halted at $flag$notRunStr"
-        exit $LASTEXITCODE
+        if (-not $recovered) {
+            $notRun    = @($mutating | Where-Object { $_.Flag -notin $ran.ToArray() -and $_.Flag -ne $flag }) | ForEach-Object { $_.Flag }
+            $notRunStr = if ($notRun) { " |not run: $($notRun -join '')" } else { '' }
+            Write-Host "gitbox $($Spec): step $flag ($name) failed"
+            Write-Host "halted at $flag$notRunStr"
+            exit $stepExit
+        }
+        # $i intentionally not advanced — retry the failed step on next iteration
+        continue
     }
+
+    $ran.Add($flag)
+    $i++
 }
 
 # --- Execute diagnostic steps ---
