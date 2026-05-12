@@ -3,6 +3,8 @@ param(
     [string]$Name
 )
 
+. (Join-Path $PSScriptRoot 'g-registry.ps1')
+
 $repo = Get-Location
 
 $remote = git -C $repo remote get-url origin 2>$null
@@ -12,8 +14,7 @@ if ($remote -notmatch '[/@]github\.com[:/]') {
 
 $repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
 $branch     = git -C $repo branch --show-current 2>$null
-$baseBranch = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
-if (-not $baseBranch) { $baseBranch = "main" }
+$baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
 if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 

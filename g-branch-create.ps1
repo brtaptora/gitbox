@@ -5,6 +5,10 @@ param(
     [switch]$Force
 )
 
+begin {
+    . (Join-Path $PSScriptRoot 'g-registry.ps1')
+}
+
 process {
     $repo = Get-Location
 
@@ -15,8 +19,7 @@ process {
         Write-Host "invalid branch name: $Name"; exit 1
     }
 
-    $baseBranch = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
-    if (-not $baseBranch) { $baseBranch = "main" }
+    $baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
     $existsLocal  = git -C $repo branch --list $Name 2>$null
     $existsRemote = git -C $repo branch -r --list "origin/$Name" 2>$null
