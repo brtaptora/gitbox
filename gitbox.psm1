@@ -97,10 +97,19 @@ function Invoke-Gitbox {
     param(
         [Parameter(Position=0, Mandatory)]
         [string]$Spec,
+        [Parameter(ValueFromPipeline)]
+        [string]$PipelineArg,
         [Parameter(Position=1, ValueFromRemainingArguments)]
-        [string[]]$Rest
+        [string[]]$Rest,
+        [switch]$AllowWip
     )
-    & (Join-Path $PSScriptRoot 'gitbox.ps1') $Spec @Rest
+    process {
+        if ($PipelineArg) {
+            $PipelineArg | & (Join-Path $PSScriptRoot 'gitbox.ps1') $Spec @Rest -AllowWip:$AllowWip
+        } else {
+            & (Join-Path $PSScriptRoot 'gitbox.ps1') $Spec @Rest -AllowWip:$AllowWip
+        }
+    }
 }
 
 Set-Alias -Name 'gitbox' -Value 'Invoke-Gitbox'
