@@ -8,8 +8,8 @@ $repo = Get-Location
 $branch = git -C $repo branch --show-current 2>$null
 if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 
-$repoMeta   = gh repo view --json defaultBranchRef,nameWithOwner 2>$null | ConvertFrom-Json
-$baseBranch = if ($repoMeta) { $repoMeta.defaultBranchRef.name } else { "main" }
+$repoMeta   = gh repo view --json nameWithOwner 2>$null | ConvertFrom-Json
+$baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
 # --- branch class ---
 $class = if ($branch -eq $baseBranch)    { "B" }

@@ -1,10 +1,11 @@
+. (Join-Path $PSScriptRoot 'g-registry.ps1')
+
 $repo = Get-Location
 
 $branch = git -C $repo branch --show-current 2>$null
 if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 
-$baseBranch = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
-if (-not $baseBranch) { $baseBranch = "main" }
+$baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
 if ($branch -eq $baseBranch) {
     Write-Host "already on base branch; run: git pull origin $baseBranch"; exit 1

@@ -5,6 +5,10 @@ param(
     [string]$Body = ""
 )
 
+begin {
+    . (Join-Path $PSScriptRoot 'g-registry.ps1')
+}
+
 process {
     $repo = Get-Location
 
@@ -15,8 +19,7 @@ process {
 
     $repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
     $branch     = git -C $repo branch --show-current 2>$null
-    $baseBranch = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
-    if (-not $baseBranch) { $baseBranch = "main" }
+    $baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
     $existing = gh pr list --repo $repoName --head $branch --json number,url 2>$null | ConvertFrom-Json
     if ($existing -and $existing.Count -gt 0) {
