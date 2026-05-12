@@ -34,8 +34,19 @@ $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 
 $CanonicalOrder = [string[]]@('b','r','s','c','u','o','x','m','Q','S','B','C','W','O','X')
 
-# Resolve workflow name or raw flag string
-$flagStr = if ($WorkflowRegistry.Contains($Spec)) { $WorkflowRegistry[$Spec] } else { $Spec.TrimStart('-') }
+# Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
+$flagStr = if ($WorkflowRegistry.Contains($Spec)) {
+    $WorkflowRegistry[$Spec]
+} else {
+    $matched = $null
+    foreach ($wf in ($WorkflowRegistry.Keys | Sort-Object { $_.Length } -Descending)) {
+        if ($Spec.StartsWith($wf) -and $Spec.Length -gt $wf.Length) {
+            $matched = $WorkflowRegistry[$wf] + $Spec.Substring($wf.Length)
+            break
+        }
+    }
+    if ($matched) { $matched } else { $Spec.TrimStart('-') }
+}
 
 # Validate all flag characters
 foreach ($ch in $flagStr.ToCharArray()) {
