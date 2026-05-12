@@ -19,6 +19,7 @@ $CapabilityPatterns = [ordered]@{
     REBASE        = 'git\b.+rebase\b'
     CHECKOUT      = 'git\b.+checkout\b'
     MERGE         = 'git\b.+merge\b'
+    TAG           = 'git\b.+tag\b'
     PR_CREATE     = 'gh\b.+pr\s+create\b'
     PR_MERGE      = 'gh\b.+pr\s+merge\b'
     PR_READY      = 'gh\b.+pr\s+ready\b'
@@ -27,12 +28,26 @@ $CapabilityPatterns = [ordered]@{
 }
 
 function Get-ScriptCapabilities {
-    param([string]$Path)
+    param(
+        [string]$Path,
+        [System.Collections.Generic.HashSet[string]]$Visited = $null
+    )
+    if (-not $Visited) { $Visited = [System.Collections.Generic.HashSet[string]]::new() }
+    if (-not $Visited.Add($Path)) { return [string[]]@() }
     $seen   = [System.Collections.Generic.HashSet[string]]::new()
     $result = [System.Collections.Generic.List[string]]::new()
     foreach ($line in (Get-Content $Path)) {
         $t = $line.Trim()
         if (-not $t -or $t -match '^#' -or $t -match '^\$\w+\s*[+]?=\s*".*\b(git|gh)\b') { continue }
+        # Inherit caps from scripts called with & via Join-Path; excludes dot-source (.) infrastructure loads
+        if ($t -match '&\s+.*\bJoin-Path\b' -and $t -match "'(g-[^']+\.ps1)'") {
+            $refPath = Join-Path (Split-Path $Path) $Matches[1]
+            if (Test-Path $refPath) {
+                foreach ($cap in (Get-ScriptCapabilities -Path $refPath -Visited $Visited)) {
+                    if ($seen.Add($cap)) { $result.Add($cap) }
+                }
+            }
+        }
         foreach ($cap in $CapabilityPatterns.Keys) {
             if ($t -match $CapabilityPatterns[$cap]) {
                 if ($seen.Add($cap)) { $result.Add($cap) }
@@ -52,6 +67,7 @@ $FlagScripts = @{
     o = 'g-open-pr.ps1'
     x = 'g-pr-checks.ps1'
     m = 'g-merge-rotate.ps1'
+    z = 'g-release.ps1'
 }
 $FlagCapabilities = @{}
 foreach ($flag in $FlagScripts.Keys) {
@@ -71,6 +87,7 @@ $WorkflowRegistry = [ordered]@{
     merge   = 'm'
     ship    = 'cxm'
     full    = 'cuoxm'
+    release = 'z'
 }
 
 function Get-GitboxConfig {

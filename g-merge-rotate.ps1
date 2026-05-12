@@ -1,6 +1,7 @@
 param(
     [Parameter(ValueFromPipeline)]
-    [string]$Name
+    [string]$Name,
+    [int]$Steps = [int]::MaxValue
 )
 
 . (Join-Path $PSScriptRoot 'g-registry.ps1')
@@ -18,13 +19,15 @@ $baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
 if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 
-# find open PR for this branch
+# Step 1: find open PR for this branch
 $prJson = gh pr list --repo $repoName --head $branch --json number,state 2>$null | ConvertFrom-Json
 if (-not $prJson -or $prJson.Count -eq 0) {
     Write-Host "no open PR for branch '$branch'"; exit 1
 }
 $prNumber = $prJson[0].number
+if (1 -ge $Steps) { exit 0 }
 
+# Step 2: merge
 # gh pr merge exit code is the only reliable signal; stderr must be captured to surface failures
 $mergeOut = gh pr merge $prNumber --repo $repoName --merge 2>&1
 if ($LASTEXITCODE -ne 0) {
@@ -32,22 +35,26 @@ if ($LASTEXITCODE -ne 0) {
     $mergeOut | ForEach-Object { Write-Host "  $_" }
     exit 1
 }
+if (2 -ge $Steps) { exit 0 }
 
-# switch to base branch and pull
+# Step 3: switch to base branch and pull
 $checkoutOut = git -C $repo checkout $baseBranch 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Host "checkout $baseBranch failed"; $checkoutOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
 $pullOut = git -C $repo pull origin $baseBranch 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Host "pull origin/$baseBranch failed"; $pullOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+if (3 -ge $Steps) { exit 0 }
 
-# delete remote branch (GitHub may already have deleted it on merge)
+# Step 4: delete remote branch (GitHub may already have deleted it on merge)
 $delRemoteOut = git -C $repo push origin --delete $branch 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Host "  warning: remote branch delete failed (may already be deleted)" }
+if (4 -ge $Steps) { exit 0 }
 
-# delete local branch
+# Step 5: delete local branch
 $delLocalOut = git -C $repo branch -d $branch 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Host "  warning: local branch delete failed: $($delLocalOut -join ' ')" }
+if (5 -ge $Steps) { exit 0 }
 
-# create next branch — use supplied name or fall back to wip/ timestamp
+# Step 6: create next branch — use supplied name or fall back to wip/ timestamp
 $newBranch = if ($Name) { $Name } else { "wip/$(Get-Date -Format 'MMdd-HHmm')" }
 $newBranchOut = git -C $repo checkout -b $newBranch 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Host "checkout -b $newBranch failed"; $newBranchOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
