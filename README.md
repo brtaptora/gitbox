@@ -89,6 +89,20 @@ Arguments are positional and consumed left-to-right by flags that need one.
 | `ship` | `cxm` | Commit, check CI, merge |
 | `full` | `cuoxm` | Commit, push, open PR, check CI, merge |
 
+### Skip behavior
+
+Before executing mutating flags the orchestrator scans the current matrix state and skips any flag whose work is already done:
+
+| Flag | Skipped when |
+|------|-------------|
+| `b` | Already on a feature branch |
+| `c` | Nothing to commit or stage |
+| `u` | All commits already pushed |
+| `o` | PR already open or approved |
+| `x` | No failing checks |
+
+A skipped flag prints `skip <flag> (<name>): <reason>` and the pipeline continues to the next flag.
+
 ### Examples
 
 ```powershell
@@ -129,9 +143,9 @@ gitbox W
 
 | Alias | Function | Input | What it does |
 |-------|----------|-------|--------------|
-| `g-open-pr` | `New-GitPullRequest` | PR title via pipeline (`-Body` optional) | Open PR against default branch |
+| `g-open-pr` | `New-GitPullRequest` | PR title via pipeline (`-Body` optional) | Open PR against base branch; exits 0 with existing PR URL if one is already open |
 | `g-pr-checks` | `Get-GitPullRequestChecks` | none | Summarise check results for current branch PR |
-| `g-merge-rotate` | `Invoke-GitMergeRotate` | none | Merge PR, delete branch, create new `wip/` branch |
+| `g-merge-rotate` | `Invoke-GitMergeRotate` | branch name (optional, via pipeline) | Merge PR, delete branch, create next branch (defaults to `wip/MMDD-HHmm`) |
 
 ### Status and diagnostics
 
