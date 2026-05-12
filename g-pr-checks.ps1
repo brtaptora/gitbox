@@ -1,21 +1,16 @@
-$repo = Get-Location
+. (Join-Path $PSScriptRoot 'g-registry.ps1')
 
-$branch = git -C $repo branch --show-current 2>$null
-if (-not $branch) { Write-Host "not a git repo"; exit 1 }
+$state = Get-GitRepoState
+if (-not $state) { Write-Host "not a git repo"; exit 1 }
+if (-not $state.RepoName) { Write-Host "could not resolve repo name"; exit 1 }
 
-$repoName = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
-if (-not $repoName) { Write-Host "could not resolve repo name"; exit 1 }
-
-$prJson = gh pr list --repo $repoName --head $branch --json number,state,statusCheckRollup 2>$null | ConvertFrom-Json
-if (-not $prJson -or $prJson.Count -eq 0) {
-    Write-Host "no open PR for branch '$branch'"; exit 1
+if (-not $state.PR) {
+    Write-Host "no open PR for branch '$($state.Branch)'"; exit 1
 }
 
-$pr = $prJson[0]
-
-$checksJson = gh pr checks $pr.number --repo $repoName --json name,state,conclusion 2>$null | ConvertFrom-Json
+$checksJson = gh pr checks $state.PR.number --repo $state.RepoName --json name,state,conclusion 2>$null | ConvertFrom-Json
 if (-not $checksJson -or $checksJson.Count -eq 0) {
-    Write-Host "PR #$($pr.number): no checks configured"; exit 0
+    Write-Host "PR #$($state.PR.number): no checks configured"; exit 0
 }
 
 $pass    = @($checksJson | Where-Object { $_.conclusion -eq 'SUCCESS' })
@@ -23,7 +18,7 @@ $fail    = @($checksJson | Where-Object { $_.conclusion -eq 'FAILURE' })
 $pending = @($checksJson | Where-Object { $_.conclusion -notin @('SUCCESS','FAILURE') })
 
 $total   = $checksJson.Count
-$summary = "PR #$($pr.number) |$($pass.Count)/$total passed"
+$summary = "PR #$($state.PR.number) |$($pass.Count)/$total passed"
 if ($fail.Count -gt 0)    { $summary += " |$($fail.Count) failed" }
 if ($pending.Count -gt 0) { $summary += " |$($pending.Count) pending" }
 Write-Host $summary

@@ -1,7 +1,13 @@
 param(
     [Parameter(ValueFromPipeline, Mandatory)]
-    [string]$Name
+    [string]$Name,
+
+    [switch]$Force
 )
+
+begin {
+    . (Join-Path $PSScriptRoot 'g-registry.ps1')
+}
 
 process {
     $repo = Get-Location
@@ -13,8 +19,20 @@ process {
         Write-Host "invalid branch name: $Name"; exit 1
     }
 
-    $baseBranch = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
-    if (-not $baseBranch) { $baseBranch = "main" }
+    $baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
+
+    $existsLocal  = git -C $repo branch --list $Name 2>$null
+    $existsRemote = git -C $repo branch -r --list "origin/$Name" 2>$null
+    if ($existsLocal -or $existsRemote) {
+        Write-Host "branch '$Name' already exists"
+        if (-not $Force) {
+            $confirm = Read-Host "check it out? [y/N]"
+            if ($confirm -notmatch '^[yY]$') { exit 1 }
+        }
+        git -C $repo checkout $Name 2>&1 | Out-Null
+        Write-Host "checked out $Name"
+        exit 0
+    }
 
     if ($branch -ne $baseBranch) {
         if ($branch -match '^wip/') {

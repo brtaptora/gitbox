@@ -1,0 +1,25 @@
+name: gitbox diagnostics
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: backlog scan
+        shell: pwsh
+        run: ./g-backlog.ps1
+
+      - name: capabilities coverage
+        shell: pwsh
+        run: ./gitbox.ps1 C
+
+      - name: optimization scores
+        shell: pwsh
+        run: ./gitbox.ps1 O

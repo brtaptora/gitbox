@@ -1,24 +1,28 @@
 # Flag-stack orchestrator. Routes flag sequences to scripts in canonical order.
-# Usage: gitbox <flags|workflow> [arg ...]
-# Flags: b=branch-create r=rename s=sync c=commit p=push o=open-pr x=pr-checks m=merge-rotate
-#        Q=status S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize
+# Usage: gitbox <flags|workflow> [arg ...] [-AllowWip]
+# Flags: b=branch-create r=rename s=sync c=commit u=push o=open-pr x=pr-checks m=merge-rotate
+#        Q=status S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize X=run-logs
+# -AllowWip: skip the wip-branch rename prompt and commit on the wip branch as-is
 
 param(
     [Parameter(Position=0, Mandatory)]
     [string]$Spec,
+    [Parameter(ValueFromPipeline)]
+    [string]$PipelineArg,
     [Parameter(Position=1, ValueFromRemainingArguments)]
-    [string[]]$Rest
+    [string[]]$Rest,
+    [switch]$AllowWip
 )
 
 . (Join-Path $PSScriptRoot 'g-error-vectors.ps1')
 
 # Case-sensitive: lowercase=mutating, uppercase=diagnostic; 's' and 'S' are distinct keys
 $FlagMap = [System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)
-$FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true  }
+$FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true;  Force = $true }
 $FlagMap['r'] = @{ Script = 'g-branch-rename.ps1';  NeedsArg = $true  }
 $FlagMap['s'] = @{ Script = 'g-branch-sync.ps1';    NeedsArg = $false }
 $FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = $true  }
-$FlagMap['p'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
+$FlagMap['u'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
 $FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = $true  }
 $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
 $FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional' }
@@ -28,11 +32,23 @@ $FlagMap['B'] = @{ Script = 'g-backlog.ps1';        NeedsArg = $false }
 $FlagMap['C'] = @{ Script = 'g-capabilities.ps1';   NeedsArg = $false }
 $FlagMap['W'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['O'] = @{ Script = $null;                  NeedsArg = $false }
+$FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','p','o','x','m','Q','S','B','C','W','O')
+$CanonicalOrder = [string[]]@('b','r','s','c','u','o','x','m','Q','S','B','C','W','O','X')
 
-# Resolve workflow name or raw flag string
-$flagStr = if ($WorkflowRegistry.Contains($Spec)) { $WorkflowRegistry[$Spec] } else { $Spec.TrimStart('-') }
+# Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
+$flagStr = if ($WorkflowRegistry.Contains($Spec)) {
+    $WorkflowRegistry[$Spec]
+} else {
+    $matched = $null
+    foreach ($wf in ($WorkflowRegistry.Keys | Sort-Object { $_.Length } -Descending)) {
+        if ($Spec.StartsWith($wf) -and $Spec.Length -gt $wf.Length) {
+            $matched = $WorkflowRegistry[$wf] + $Spec.Substring($wf.Length)
+            break
+        }
+    }
+    if ($matched) { $matched } else { $Spec.TrimStart('-') }
+}
 
 # Validate all flag characters
 foreach ($ch in $flagStr.ToCharArray()) {
@@ -52,7 +68,7 @@ foreach ($f in $CanonicalOrder) {
 
 # Verify arg count before executing anything; 'optional' flags are not counted as required
 $argSteps = @($steps | Where-Object { $_.Info.NeedsArg -eq $true })
-$argCount  = if ($Rest) { $Rest.Count } else { 0 }
+$argCount  = ($Rest ? $Rest.Count : 0) + ($PipelineArg ? 1 : 0)
 if ($argCount -lt $argSteps.Count) {
     $missing = $argSteps[$argCount]
     $name    = $missing.Info.Script -replace '\.ps1$','' -replace '^g-',''
@@ -63,22 +79,64 @@ if ($argCount -lt $argSteps.Count) {
 
 # --- Execute mutating steps ---
 $argQueue = [System.Collections.Generic.Queue[string]]::new()
+if ($PipelineArg) { $argQueue.Enqueue($PipelineArg) }
 if ($Rest) { foreach ($a in $Rest) { $argQueue.Enqueue($a) } }
 
 $mutating = @($steps | Where-Object { $_.Flag -cmatch '[a-z]' })
 $ran      = [System.Collections.Generic.List[string]]::new()
+
+# --- Track B: matrix pre-check — skip flags whose work is already done ---
+$skippableFlags = @('b','c','u','o','x')
+$skipFlags = @{}
+$skipReasons = @{
+    'b' = 'already on feature branch'
+    'c' = 'nothing to commit'
+    'u' = 'no unpushed commits'
+    'o' = 'PR already open'
+    'x' = 'checks not failing'
+}
+if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
+    $scanOut = & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') 2>$null 6>&1
+    $hashRaw = ($scanOut | Where-Object { "$_" -match '^[BFW]\|' }) | Select-Object -First 1
+    if ($hashRaw -and "$hashRaw" -match '^([BFW])\|([^|]+)\|a\d+\|b\d+\|([PU])\|(PR[-DXOA]+)$') {
+        $hClass = $Matches[1]; $hDirty = $Matches[2]; $hPush = $Matches[3]; $hPR = $Matches[4]
+        $skipFlags['b'] = ($hClass -eq 'F')
+        $skipFlags['c'] = ($hDirty -eq 'c')
+        $skipFlags['u'] = ($hPush  -eq 'P')
+        $skipFlags['o'] = ($hPR -in @('PRO','PRA'))
+        $skipFlags['x'] = ($hPR -ne 'PRX')
+
+        if ($hClass -eq 'W' -and ($steps | Where-Object { $_.Flag -eq 'c' })) {
+            if (-not $AllowWip) {
+                $wipBranch = git branch --show-current 2>$null
+                $newName = Read-Host "gitbox: on wip branch '$wipBranch'. Enter new branch name (Enter to proceed as wip)"
+                if ($newName) {
+                    $newName | & (Join-Path $PSScriptRoot 'g-branch-rename.ps1')
+                    if ($LASTEXITCODE -ne 0) { Write-Host "gitbox: rename failed"; exit $LASTEXITCODE }
+                }
+            }
+        }
+    }
+}
 
 foreach ($step in $mutating) {
     $flag   = $step.Flag
     $script = Join-Path $PSScriptRoot $step.Info.Script
     $name   = $step.Info.Script -replace '\.ps1$','' -replace '^g-',''
 
+    if ($skipFlags.ContainsKey($flag) -and $skipFlags[$flag]) {
+        Write-Host "skip $flag ($name): $($skipReasons[$flag])"
+        $ran.Add($flag)
+        continue
+    }
+
+    $forceArg = if ($step.Info.Force) { @{ Force = $true } } else { @{} }
     if ($step.Info.NeedsArg -eq $true) {
-        $argQueue.Dequeue() | & $script
+        $argQueue.Dequeue() | & $script @forceArg
     } elseif ($step.Info.NeedsArg -eq 'optional' -and $argQueue.Count -gt 0) {
-        $argQueue.Dequeue() | & $script
+        $argQueue.Dequeue() | & $script @forceArg
     } else {
-        & $script
+        & $script @forceArg
     }
 
     $ran.Add($flag)
@@ -122,7 +180,7 @@ foreach ($step in $diag) {
         }
         'O' {
             $scripts = Get-ChildItem -Path $PSScriptRoot -Filter 'g-*.ps1' |
-                Where-Object { $_.Name -notin 'g-capabilities.ps1','g-error-vectors.ps1' } |
+                Where-Object { $_.Name -notin 'g-capabilities.ps1','g-error-vectors.ps1','g-registry.ps1' } |
                 Sort-Object Name
             $scored = foreach ($s in $scripts) {
                 $caps  = Get-ScriptCapabilities -Path $s.FullName

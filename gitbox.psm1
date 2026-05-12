@@ -46,6 +46,10 @@ function Get-GitCapabilities {
     & (Join-Path $PSScriptRoot 'g-capabilities.ps1')
 }
 
+function Get-GitRunLogs {
+    & (Join-Path $PSScriptRoot 'g-run-logs.ps1')
+}
+
 function Get-GitPullRequestChecks {
     & (Join-Path $PSScriptRoot 'g-pr-checks.ps1')
 }
@@ -82,6 +86,7 @@ Set-Alias -Name 'g-matrix-scan'    -Value 'Get-GitMatrix'
 Set-Alias -Name 'g-matrix-resolve' -Value 'Resolve-GitMatrix'
 Set-Alias -Name 'g-backlog'        -Value 'Get-GitBacklog'
 Set-Alias -Name 'g-capabilities'   -Value 'Get-GitCapabilities'
+Set-Alias -Name 'g-run-logs'       -Value 'Get-GitRunLogs'
 Set-Alias -Name 'g-branch-rename'  -Value 'Rename-GitBranch'
 Set-Alias -Name 'g-branch-sync'    -Value 'Sync-GitBranch'
 Set-Alias -Name 'g-push'           -Value 'Push-GitBranch'
@@ -92,10 +97,19 @@ function Invoke-Gitbox {
     param(
         [Parameter(Position=0, Mandatory)]
         [string]$Spec,
+        [Parameter(ValueFromPipeline)]
+        [string]$PipelineArg,
         [Parameter(Position=1, ValueFromRemainingArguments)]
-        [string[]]$Rest
+        [string[]]$Rest,
+        [switch]$AllowWip
     )
-    & (Join-Path $PSScriptRoot 'gitbox.ps1') $Spec @Rest
+    process {
+        if ($PipelineArg) {
+            $PipelineArg | & (Join-Path $PSScriptRoot 'gitbox.ps1') $Spec @Rest -AllowWip:$AllowWip
+        } else {
+            & (Join-Path $PSScriptRoot 'gitbox.ps1') $Spec @Rest -AllowWip:$AllowWip
+        }
+    }
 }
 
 Set-Alias -Name 'gitbox' -Value 'Invoke-Gitbox'
