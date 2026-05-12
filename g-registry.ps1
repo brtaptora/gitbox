@@ -43,16 +43,20 @@ function Get-ScriptCapabilities {
     return [string[]]$result
 }
 
-# Hardcoded capability vectors per flag for workflow gap-coverage analysis
-$FlagCapabilities = @{
-    b = @('BRANCH_CREATE')
-    r = @('BRANCH_RENAME')
-    s = @('REBASE', 'PULL')
-    c = @('STAGE', 'COMMIT', 'PUSH')
-    p = @('PUSH')
-    o = @('PR_CREATE')
-    x = @('PR_CHECKS')
-    m = @('PR_MERGE', 'BRANCH_DELETE', 'BRANCH_CREATE', 'CHECKOUT')
+$FlagScripts = @{
+    b = 'g-branch-create.ps1'
+    r = 'g-branch-rename.ps1'
+    s = 'g-branch-sync.ps1'
+    c = 'g-commit-push.ps1'
+    u = 'g-push.ps1'
+    o = 'g-open-pr.ps1'
+    x = 'g-pr-checks.ps1'
+    m = 'g-merge-rotate.ps1'
+}
+$FlagCapabilities = @{}
+foreach ($flag in $FlagScripts.Keys) {
+    $sp = Join-Path $PSScriptRoot $FlagScripts[$flag]
+    if (Test-Path $sp) { $FlagCapabilities[$flag] = Get-ScriptCapabilities -Path $sp }
 }
 
 # Named flag sequences for the gitbox orchestrator
@@ -61,12 +65,12 @@ $WorkflowRegistry = [ordered]@{
     rename  = 'r'
     sync    = 's'
     commit  = 'c'
-    push    = 'p'
+    push    = 'u'
     pr      = 'o'
     checks  = 'x'
     merge   = 'm'
     ship    = 'cxm'
-    full    = 'cpoxm'
+    full    = 'cuoxm'
 }
 
 function Get-GitboxConfig {

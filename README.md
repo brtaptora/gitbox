@@ -61,7 +61,7 @@ gitbox <flags|workflow> [arg ...]
 | `r` | Rename current branch | branch name |
 | `s` | Fetch and rebase onto base | — |
 | `c` | Stage all, commit, push | commit message |
-| `p` | Push unpushed commits | — |
+| `u` | Push unpushed commits | — |
 | `o` | Open PR against default branch | PR title |
 | `x` | Report CI check results | — |
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
@@ -82,12 +82,12 @@ Arguments are positional and consumed left-to-right by flags that need one.
 | `rename` | `r` | Rename branch |
 | `sync` | `s` | Rebase onto base |
 | `commit` | `c` | Stage, commit, push |
-| `push` | `p` | Push |
+| `push` | `u` | Push |
 | `pr` | `o` | Open PR |
 | `checks` | `x` | Check CI |
 | `merge` | `m` | Merge and rotate (to `wip/` or named branch) |
 | `ship` | `cxm` | Commit, check CI, merge |
-| `full` | `cpoxm` | Commit, push, open PR, check CI, merge |
+| `full` | `cuoxm` | Commit, push, open PR, check CI, merge |
 
 ### Examples
 

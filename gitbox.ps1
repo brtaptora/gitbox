@@ -1,6 +1,6 @@
 # Flag-stack orchestrator. Routes flag sequences to scripts in canonical order.
 # Usage: gitbox <flags|workflow> [arg ...]
-# Flags: b=branch-create r=rename s=sync c=commit p=push o=open-pr x=pr-checks m=merge-rotate
+# Flags: b=branch-create r=rename s=sync c=commit u=push o=open-pr x=pr-checks m=merge-rotate
 #        Q=status S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize
 
 param(
@@ -18,7 +18,7 @@ $FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true;  Force = $
 $FlagMap['r'] = @{ Script = 'g-branch-rename.ps1';  NeedsArg = $true  }
 $FlagMap['s'] = @{ Script = 'g-branch-sync.ps1';    NeedsArg = $false }
 $FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = $true  }
-$FlagMap['p'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
+$FlagMap['u'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
 $FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = $true  }
 $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
 $FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional' }
@@ -29,7 +29,7 @@ $FlagMap['C'] = @{ Script = 'g-capabilities.ps1';   NeedsArg = $false }
 $FlagMap['W'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['O'] = @{ Script = $null;                  NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','p','o','x','m','Q','S','B','C','W','O')
+$CanonicalOrder = [string[]]@('b','r','s','c','u','o','x','m','Q','S','B','C','W','O')
 
 # Resolve workflow name or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) { $WorkflowRegistry[$Spec] } else { $Spec.TrimStart('-') }
@@ -69,12 +69,12 @@ $mutating = @($steps | Where-Object { $_.Flag -cmatch '[a-z]' })
 $ran      = [System.Collections.Generic.List[string]]::new()
 
 # --- Track B: matrix pre-check — skip flags whose work is already done ---
-$skippableFlags = @('b','c','p','o','x')
+$skippableFlags = @('b','c','u','o','x')
 $skipFlags = @{}
 $skipReasons = @{
     'b' = 'already on feature branch'
     'c' = 'nothing to commit'
-    'p' = 'no unpushed commits'
+    'u' = 'no unpushed commits'
     'o' = 'PR already open'
     'x' = 'checks not failing'
 }
@@ -85,7 +85,7 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
         $hClass = $Matches[1]; $hDirty = $Matches[2]; $hPush = $Matches[3]; $hPR = $Matches[4]
         $skipFlags['b'] = ($hClass -eq 'F')
         $skipFlags['c'] = ($hDirty -eq 'c')
-        $skipFlags['p'] = ($hPush  -eq 'P')
+        $skipFlags['u'] = ($hPush  -eq 'P')
         $skipFlags['o'] = ($hPR -in @('PRO','PRA'))
         $skipFlags['x'] = ($hPR -ne 'PRX')
     }
