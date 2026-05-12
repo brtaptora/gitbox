@@ -50,7 +50,7 @@ Each script has a `g-` alias and a verb-noun function name. Either form works af
 `gitbox.ps1` sequences flags into a pipeline. Lowercase flags are mutating and run in a fixed canonical order; uppercase flags are diagnostic and run after all mutating steps. The pipeline halts immediately on the first failure.
 
 ```powershell
-gitbox <flags|workflow> [arg ...]
+gitbox <flags|workflow> [arg ...] [-AllowWip]
 ```
 
 ### Flags
@@ -71,6 +71,7 @@ gitbox <flags|workflow> [arg ...]
 | `C` | Score script coverage | — |
 | `W` | Print workflow registry | — |
 | `O` | Print optimization scores | — |
+| `X` | Fetch CI run logs grouped by step | — |
 
 Arguments are positional and consumed left-to-right by flags that need one.
 
@@ -89,6 +90,17 @@ Arguments are positional and consumed left-to-right by flags that need one.
 | `ship` | `cxm` | Commit, check CI, merge |
 | `full` | `cuoxm` | Commit, push, open PR, check CI, merge |
 
+### Workflow-prefix compounds
+
+A workflow name can be used as a prefix: the orchestrator expands the workflow, then appends the remaining characters as raw flags. Names are matched longest-first so no short name shadows a longer one.
+
+```powershell
+gitbox mX        # m + X: merge and view CI logs (raw flag string — 'm' is not a workflow prefix here)
+gitbox shipX     # ship → cxm, append X → cxmX: commit, check CI, merge, view CI logs
+gitbox fullX     # full → cuoxm, append X → cuoxmX: full workflow then view CI logs
+gitbox prX       # pr → o, append X → oX: open PR then view CI logs
+```
+
 ### Skip behavior
 
 Before executing mutating flags the orchestrator scans the current matrix state and skips any flag whose work is already done:
@@ -103,6 +115,16 @@ Before executing mutating flags the orchestrator scans the current matrix state 
 
 A skipped flag prints `skip <flag> (<name>): <reason>` and the pipeline continues to the next flag.
 
+### Guards
+
+The `c` flag (and any workflow that includes `c`) detects when the current branch is an unnamed `wip/` branch and pauses to prompt for a new name. Enter a name to rename the branch and continue; press Enter to proceed on the wip branch as-is.
+
+To skip the prompt entirely and always commit on the wip branch, pass `-AllowWip`:
+
+```powershell
+gitbox ship "all done" -AllowWip
+```
+
 ### Examples
 
 ```powershell
@@ -115,11 +137,20 @@ gitbox c "fix the thing"
 # commit, check CI, merge
 gitbox ship "all done"
 
+# commit, check CI, merge, then view CI logs
+gitbox shipX "all done"
+
+# merge and view CI logs
+gitbox mX
+
 # commit and open PR in one step (two args: commit message then PR title)
 gitbox co "fix the thing" "Fix the thing"
 
 # show workflow registry
 gitbox W
+
+# view CI run logs for the current branch (or base branch if no runs on current)
+gitbox X
 ```
 
 ## Commands
@@ -156,6 +187,7 @@ gitbox W
 | `g-matrix-resolve` | `Resolve-GitMatrix` | state hash via pipeline | Resolve hash to recommended next action |
 | `g-backlog` | `Get-GitBacklog` | none | List all unhandled workflow states |
 | `g-capabilities` | `Get-GitCapabilities` | none | Score script coverage against known gap requirements |
+| `g-run-logs` | `Get-GitRunLogs` | none | Fetch most recent CI run logs grouped by step; falls back to base branch when current branch has no runs |
 
 ## Matrix internals
 
