@@ -27,14 +27,8 @@ process {
         exit 0
     }
 
-    $prArgs = @("pr", "create", "--repo", $repoName, "--title", $Title, "--base", $baseBranch)
-    if ($Body) {
-        $prArgs += @("--body", $Body)
-    } else {
-        $prArgs += @("--body", "")
-    }
-
-    $url = gh @prArgs 2>$null
+    $bodyValue = if ($Body) { $Body } else { "" }
+    $url = gh pr create --repo $repoName --title $Title --base $baseBranch --body $bodyValue 2>$null
     if ($LASTEXITCODE -ne 0) { Write-Host "pr create failed"; exit 1 }
     $number = $url -replace ".*/pull/", ""
 
