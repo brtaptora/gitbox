@@ -61,4 +61,11 @@ foreach ($wfName in $WorkflowRegistry.Keys) {
     $coversStr = if ($covers) { $covers -join ' ' } else { '(none)' }
     Write-Host ("  {0,-8} = {1,-6}  covers: {2}" -f $wfName, $wFlags, $coversStr)
 }
+
+$unclassified = @($gaps | Where-Object { $_ -match 'GAP\[UNCLASSIFIED\]' })
+if ($unclassified.Count -gt 0) {
+    Write-Host ''
+    Write-Host "$($unclassified.Count) unclassified gap$(if ($unclassified.Count -ne 1) {'s'}) -- add resolve rules to g-matrix-resolve.ps1"
+    exit 1
+}
 exit 0
