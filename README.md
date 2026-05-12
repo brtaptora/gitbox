@@ -225,7 +225,7 @@ density(S) = |caps(S)| / non-blank-non-comment-lines(S)
 
 Scripts with low density and non-zero capabilities are consolidation candidates.
 
-Known limitation: splatted calls (`gh @args`) are not resolved by static analysis. `g-open-pr.ps1` uses splatting for `gh pr create`, so `gitbox W` reports `caps: (none)` for the `pr` workflow even though it does invoke `gh pr create`.
+Known limitation: splatted calls (`gh @args`) are not resolved by static analysis. Scripts that build argument arrays and splat them will show no capabilities in `gitbox W`. Prefer direct invocations (`gh pr create ...`) so the scanner can detect them.
 
 ## Error recovery
 
