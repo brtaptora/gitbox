@@ -36,15 +36,18 @@ $gaps = foreach ($cl in $classes) {
 
 $gaps = $gaps | ForEach-Object { $_.Trim() } | Select-Object -Unique | Sort-Object
 
-if (-not $gaps) { Write-Host "no gaps found"; exit 0 }
-
-$i = 1
-foreach ($gap in $gaps) {
-    Write-Host "$i. $gap"
-    $i++
+if ($gaps) {
+    $i = 1
+    foreach ($gap in $gaps) {
+        Write-Host "$i. $gap"
+        $i++
+    }
+    Write-Host ''
+} else {
+    Write-Host "no gaps found"
+    Write-Host ''
 }
 
-Write-Host ''
 Write-Host 'Workflow coverage:'
 $allGapDims = $GapRequirements.Keys | Sort-Object
 foreach ($wfName in $WorkflowRegistry.Keys) {
