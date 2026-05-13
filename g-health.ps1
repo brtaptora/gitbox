@@ -1,8 +1,9 @@
 # Unified health report: gap sweep (360 states), workflow coverage, per-script inventory.
 # Default output is pretty (colors + Unicode bars). Auto-switches to plain when stdout is
 # redirected (CI). Pass -Plain to force plain text explicitly.
+# -Cov adds per-script gap coverage score; -Uni adds uniqueness score; -CapV lists capability names.
 
-param([switch]$Plain)
+param([switch]$Plain, [switch]$Cov, [switch]$Uni, [switch]$CapV)
 . (Join-Path $PSScriptRoot 'g-error-vectors.ps1')
 
 $pretty    = -not $Plain -and -not [System.Console]::IsOutputRedirected
@@ -23,10 +24,24 @@ function Get-Bar {
 
 function Get-ScoreColor {
     param([double]$score, [int]$caps)
-    if ($caps -eq 0)         { return 'DarkGray' }
-    if ($score -ge 0.08)     { return 'Green'    }
-    if ($score -ge $threshold) { return 'Yellow'   }
+    if ($caps -eq 0)             { return 'DarkGray' }
+    if ($score -ge 0.08)         { return 'Green'    }
+    if ($score -ge $threshold)   { return 'Yellow'   }
     return 'Red'
+}
+
+function Get-CovColor {
+    param([double]$score)
+    if ($score -ge 1.0) { return 'Green'  }
+    if ($score -gt 0)   { return 'Yellow' }
+    return 'DarkGray'
+}
+
+function Get-UniColor {
+    param([double]$score)
+    if ($score -ge 0.5) { return 'Green'  }
+    if ($score -gt 0)   { return 'Yellow' }
+    return 'DarkGray'
 }
 
 # --- [1] Gap sweep (360 states) ---
@@ -66,8 +81,11 @@ $wfRows = foreach ($wfName in $WorkflowRegistry.Keys) {
 
 $scripts = Get-ChildItem -Path $PSScriptRoot -Filter 'g-*.ps1' |
     Where-Object { $_.Name -notin @('g-capabilities.ps1','g-error-vectors.ps1',
-                                    'g-registry.ps1','g-health.ps1','g-optimization.ps1') } |
+                                    'g-registry.ps1','g-health.ps1','g-optimization.ps1',
+                                    'g-matrix-resolve.ps1') } |
     Sort-Object Name
+
+$totalDims = $GapRequirements.Keys.Count
 
 $scriptRows = foreach ($s in $scripts) {
     $caps  = Get-ScriptCapabilities -Path $s.FullName
@@ -77,6 +95,7 @@ $scriptRows = foreach ($s in $scripts) {
         $req = $GapRequirements[$dim]
         if (@($req | Where-Object { $_ -in $caps }).Count -eq $req.Count) { $dim }
     })
+    $covScore = if ($totalDims -gt 0) { [Math]::Round($dimsCovered.Count / $totalDims, 3) } else { 0 }
     [pscustomobject]@{
         Name        = $s.Name
         Short       = ($s.Name -replace '^g-' -replace '\.ps1$')
@@ -84,11 +103,35 @@ $scriptRows = foreach ($s in $scripts) {
         Lines       = $lines
         Score       = $score
         Dims        = $dimsCovered
+        CovScore    = $covScore
         LowDensity  = ($caps.Count -gt 0 -and $score -lt $threshold)
     }
 }
 
+# --- Uniqueness scores (cross-script cap frequency; cap present in exactly one script = unique) ---
+
+if ($Uni) {
+    $capFreq = @{}
+    foreach ($row in $scriptRows) { foreach ($cap in $row.Caps) { $capFreq[$cap] = ($capFreq[$cap] ?? 0) + 1 } }
+    foreach ($row in $scriptRows) {
+        $uniq     = @($row.Caps | Where-Object { $capFreq[$_] -eq 1 }).Count
+        $uniScore = if ($row.Caps.Count -gt 0) { [Math]::Round($uniq / $row.Caps.Count, 3) } else { 0 }
+        Add-Member -InputObject $row -NotePropertyName UniScore -NotePropertyValue $uniScore
+    }
+}
+
 $lowDensityCount = @($scriptRows | Where-Object LowDensity).Count
+
+# --- Footer stats ---
+
+$coveredDims = @($GapRequirements.Keys | Where-Object {
+    $req = $GapRequirements[$_]
+    (@($req | Where-Object { $_ -in $AllCapabilities }).Count -eq $req.Count)
+}).Count
+$overallCov = if ($totalDims -gt 0) { [Math]::Round($coveredDims / $totalDims, 3) } else { 0 }
+$scoredRows = @($scriptRows | Where-Object { $_.Score -gt 0 })
+$avgDensity = if ($scoredRows.Count -gt 0) { [Math]::Round(($scoredRows | Measure-Object Score -Average).Average, 3) } else { 0 }
+$composite  = [Math]::Round($avgDensity * $overallCov, 3)
 
 # --- Summary badge ---
 
@@ -137,7 +180,11 @@ if ($pretty) {
     # ── Scripts ──
     pw '  Scripts' 'White'; Write-Host ''
     pw "  $sep" 'DarkGray'; Write-Host ''
-    pw ('  {0,-18}  {1,4}  {2,-5}  {3,-5}  ' -f 'script','caps','bar','score') 'DarkGray'; pw 'dims' 'DarkGray'; Write-Host ''
+    $hdr = '  {0,-18}  {1,4}  {2,-5}  {3,-5}' -f 'script','caps','bar','score'
+    if ($Cov) { $hdr += '  {0,-5}' -f 'cov' }
+    if ($Uni) { $hdr += '  {0,-5}' -f 'uni' }
+    $hdr += '  '
+    pw $hdr 'DarkGray'; pw 'dims' 'DarkGray'; Write-Host ''
     foreach ($row in $scriptRows) {
         $sc = Get-ScoreColor $row.Score $row.Caps.Count
         $nc = if ($row.Caps.Count -eq 0) { 'DarkGray' } else { 'White' }
@@ -146,10 +193,14 @@ if ($pretty) {
             pw ('{0,4}' -f $row.Caps.Count) 'White'; pw '  '
             pw (Get-Bar $row.Score) $sc; pw '  '
             pw ('{0:0.000}' -f $row.Score) $sc
+            if ($Cov) { pw '  '; pw ('{0:0.000}' -f $row.CovScore) (Get-CovColor $row.CovScore) }
+            if ($Uni) { pw '  '; pw ('{0:0.000}' -f $row.UniScore) (Get-UniColor $row.UniScore) }
         } else {
             pw ('{0,4}' -f ([char]0x2014)) 'DarkGray'; pw '  '
             pw (([string][char]0x2591) * 5) 'DarkGray'; pw '  '
             pw ([char]0x2014) 'DarkGray'
+            if ($Cov) { pw '  '; pw ([char]0x2014) 'DarkGray' }
+            if ($Uni) { pw '  '; pw ([char]0x2014) 'DarkGray' }
         }
         pw '  '
         if ($row.Dims.Count) {
@@ -157,7 +208,20 @@ if ($pretty) {
         } else { pw ([char]0x2014) 'DarkGray' }
         if ($row.LowDensity) { pw ("  " + [char]0x26A0 + " low density") 'Yellow' }
         Write-Host ''
+        if ($CapV -and $row.Caps.Count -gt 0) {
+            pw '    '; pw ($row.Caps -join '  ') 'DarkGray'; Write-Host ''
+        }
     }
+
+    # ── Footer ──
+    Write-Host ''
+    pw "  $sep" 'DarkGray'; Write-Host ''
+    $covColor  = if ($overallCov -ge 1.0) { 'Green' } elseif ($overallCov -gt 0) { 'Yellow' } else { 'Red' }
+    $compColor = if ($composite -ge 0.05) { 'Green' } elseif ($composite -gt 0) { 'Yellow' } else { 'Red' }
+    pw '  '; pw 'coverage ' 'DarkGray'; pw "$coveredDims/$totalDims" $covColor
+    pw '   '; pw 'avg density ' 'DarkGray'; pw ('{0:0.000}' -f $avgDensity) 'White'
+    pw '   '; pw 'composite ' 'DarkGray'; pw ('{0:0.000}' -f $composite) $compColor
+    Write-Host ''
 
 } else {
     # ── Plain output ──
@@ -175,13 +239,24 @@ if ($pretty) {
     Write-Host ''
 
     Write-Host 'Scripts'
-    Write-Host ('  {0,-34} {1,4}  {2,5}  {3,5}  {4}' -f 'Script', 'Caps', 'Lines', 'Score', 'Dims')
+    $scriptHdr = '  {0,-34} {1,4}  {2,5}  {3,5}' -f 'Script','Caps','Lines','Score'
+    if ($Cov) { $scriptHdr += '    cov' }
+    if ($Uni) { $scriptHdr += '    uni' }
+    $scriptHdr += '  Dims'
+    Write-Host $scriptHdr
     foreach ($row in $scriptRows) {
         $dimsStr  = if ($row.Dims.Count) { $row.Dims -join ' ' } else { '-' }
         $scoreStr = if ($row.Score -gt 0) { ('{0:0.000}' -f $row.Score) } else { '-' }
         $capsStr  = if ($row.Caps.Count -gt 0) { "$($row.Caps.Count)" } else { '-' }
         $suffix   = if ($row.LowDensity) { '  (!)' } else { '' }
-        Write-Host ('  {0,-34} {1,4}  {2,5}  {3,5}  {4}{5}' -f $row.Name, $capsStr, $row.Lines, $scoreStr, $dimsStr, $suffix)
+        $line     = '  {0,-34} {1,4}  {2,5}  {3,5}' -f $row.Name, $capsStr, $row.Lines, $scoreStr
+        if ($Cov) { $cs = $row.CovScore -gt 0 ? ('{0:0.000}' -f $row.CovScore) : '-'; $line += '  {0,-5}' -f $cs }
+        if ($Uni) { $us = $row.UniScore -gt 0 ? ('{0:0.000}' -f $row.UniScore) : '-'; $line += '  {0,-5}' -f $us }
+        $line += "  $dimsStr$suffix"
+        Write-Host $line
+        if ($CapV -and $row.Caps.Count -gt 0) { Write-Host "    caps: $($row.Caps -join ' ')" }
     }
+    Write-Host ''
+    Write-Host "coverage $coveredDims/$totalDims  avg-density $avgDensity  composite $composite"
 }
 exit 0
