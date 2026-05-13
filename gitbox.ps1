@@ -1,7 +1,7 @@
 # Flag-stack orchestrator. Routes flag sequences to scripts in canonical order.
 # Usage: gitbox <flags|workflow> [arg ...] [-AllowWip]
 # Flags: b=branch-create r=rename s=sync c=commit u=push o=open-pr x=pr-checks m=merge-rotate z=release
-#        Q=status S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize X=run-logs
+#        H=health Q=status S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize X=run-logs
 # -AllowWip: skip the wip-branch rename prompt and commit on the wip branch as-is
 
 param(
@@ -33,9 +33,10 @@ $FlagMap['B'] = @{ Script = 'g-backlog.ps1';        NeedsArg = $false }
 $FlagMap['C'] = @{ Script = 'g-capabilities.ps1';   NeedsArg = $false }
 $FlagMap['W'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['O'] = @{ Script = $null;                  NeedsArg = $false }
+$FlagMap['H'] = @{ Script = 'g-health.ps1';         NeedsArg = $false }
 $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','u','o','x','m','z','Q','S','B','C','W','O','X')
+$CanonicalOrder = [string[]]@('b','r','s','c','u','o','x','m','z','H','Q','S','B','C','W','O','X')
 
 # Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) {
@@ -225,31 +226,7 @@ foreach ($step in $diag) {
                 Write-Host ("  {0,-8}   {1,-6}  covers: {2}" -f '', '', $coversStr)
             }
         }
-        'O' {
-            $scripts = Get-ChildItem -Path $PSScriptRoot -Filter 'g-*.ps1' |
-                Where-Object { $_.Name -notin 'g-capabilities.ps1','g-error-vectors.ps1','g-registry.ps1' } |
-                Sort-Object Name
-            $scored = foreach ($s in $scripts) {
-                $caps  = Get-ScriptCapabilities -Path $s.FullName
-                $lines = @(Get-Content $s.FullName |
-                    Where-Object { $_.Trim() -and $_.Trim() -notmatch '^#' }).Count
-                $score = if ($lines -gt 0) { [Math]::Round($caps.Count / $lines, 3) } else { 0 }
-                [pscustomobject]@{ Script = $s.Name; Caps = $caps.Count; Lines = $lines; Score = $score }
-            }
-            Write-Host 'Optimization scores (caps / non-blank non-comment lines):'
-            Write-Host ('  {0,-34} {1,4}  {2,5}  {3,5}' -f 'Script', 'Caps', 'Lines', 'Score')
-            foreach ($r in ($scored | Sort-Object Score)) {
-                Write-Host ('  {0,-34} {1,4}  {2,5}  {3,5}' -f $r.Script, $r.Caps, $r.Lines, $r.Score)
-            }
-            $threshold  = 0.04
-            $candidates = @($scored | Where-Object { $_.Score -lt $threshold -and $_.Caps -gt 0 })
-            if ($candidates) {
-                Write-Host "`nConsolidation candidates (score < $threshold):"
-                foreach ($c in $candidates) {
-                    Write-Host "  $($c.Script)  score $($c.Score) -- low cap density, review for folding"
-                }
-            }
-        }
+        'O' { & (Join-Path $PSScriptRoot 'g-optimization.ps1') }
         default {
             & (Join-Path $PSScriptRoot $step.Info.Script)
         }

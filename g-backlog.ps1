@@ -52,6 +52,7 @@ Write-Host 'Workflow coverage:'
 $allGapDims = $GapRequirements.Keys | Sort-Object
 foreach ($wfName in $WorkflowRegistry.Keys) {
     $wFlags  = $WorkflowRegistry[$wfName]
+    if ($wFlags -cnotmatch '[a-z]') { continue }
     $allCaps = [System.Collections.Generic.HashSet[string]]::new()
     foreach ($f in $wFlags.ToCharArray()) {
         $fc = $FlagCapabilities["$f"]

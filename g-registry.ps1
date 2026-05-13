@@ -88,6 +88,7 @@ $WorkflowRegistry = [ordered]@{
     ship    = 'cxm'
     full    = 'cuoxm'
     release = 'z'
+    health  = 'H'
 }
 
 function Get-GitboxConfig {
