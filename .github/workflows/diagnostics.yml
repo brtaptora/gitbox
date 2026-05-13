@@ -12,14 +12,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: backlog scan
+      - name: health scan
         shell: pwsh
-        run: ./g-backlog.ps1
-
-      - name: capabilities coverage
-        shell: pwsh
-        run: ./gitbox.ps1 C
-
-      - name: optimization scores
-        shell: pwsh
-        run: ./gitbox.ps1 O
+        run: ./gitbox.ps1 H -Plain
