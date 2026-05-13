@@ -31,6 +31,7 @@ process {
     if ($LASTEXITCODE -ne 0) { Write-Host "commit failed"; $commitOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
     $sha = git -C $repo rev-parse --short HEAD 2>$null
 
+    Write-Host "pushing origin/$branch ..."
     $pushOut = git -C $repo push -u origin $branch 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "push failed: origin/$branch"

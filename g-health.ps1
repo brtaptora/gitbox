@@ -31,12 +31,17 @@ function Get-ScoreColor {
 
 # --- [1] Gap sweep (360 states) ---
 
-$resolveScript = Join-Path $PSScriptRoot 'g-matrix-resolve.ps1'
 $gapData = foreach ($cl in 'B','F','W') { foreach ($di in 'c','d1','s1') {
     foreach ($ah in 'a0','a1') { foreach ($be in 'b0','b1') {
         foreach ($pu in 'P','U') { foreach ($pr in 'PR-','PRD','PRO','PRX','PRA') {
-            $hash = "$cl|$di|$ah|$be|$pu|$pr"
-            ("$hash" | & $resolveScript 6>&1) | ForEach-Object { "$_" } | Where-Object { $_ -match 'GAP\[' }
+            $r = Resolve-MatrixAction -Hash "$cl|$di|$ah|$be|$pu|$pr"
+            if ($r -and $r.Dim) {
+                $req     = $GapRequirements[$r.Dim]
+                $covered = $req -and (@($req | Where-Object { $_ -in $AllCapabilities }).Count -eq $req.Count)
+                if (-not $covered) {
+                    "  $(Format-GapLabel -Class $r.Class -Dim $r.Dim -Ahead $r.Ahead -Behind $r.Behind -Pr $r.Pr)"
+                }
+            }
         } } } } } }
 $gaps = @($gapData | ForEach-Object { $_.Trim() } | Select-Object -Unique | Sort-Object)
 
