@@ -5,7 +5,7 @@
 
 $scripts = Get-ChildItem -Path $PSScriptRoot -Filter 'g-*.ps1' |
     Where-Object { $_.Name -notin @('g-capabilities.ps1','g-error-vectors.ps1','g-registry.ps1',
-                                    'g-optimization.ps1','g-health.ps1') } |
+                                    'g-optimization.ps1','g-health.ps1','g-matrix-resolve.ps1') } |
     Sort-Object Name
 $scored = foreach ($s in $scripts) {
     $caps  = Get-ScriptCapabilities -Path $s.FullName
