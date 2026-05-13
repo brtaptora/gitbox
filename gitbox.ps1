@@ -95,7 +95,7 @@ $skipReasons = @{
     'c' = 'nothing to commit'
     'u' = 'no unpushed commits'
     'o' = 'PR already open'
-    'x' = 'checks not failing'
+    'x' = 'PR open with passing checks'
 }
 if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
     $needsPR = @($mutating | Where-Object { $_.Flag -in @('o','x') }).Count -gt 0
@@ -112,7 +112,7 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
         $skipFlags['c'] = ($hDirty -eq 'c')
         $skipFlags['u'] = ($hPush  -eq 'P')
         $skipFlags['o'] = ($hPR -in @('PRO','PRA'))
-        $skipFlags['x'] = ($hPR -ne 'PRX')
+        $skipFlags['x'] = ($hPR -in @('PRO','PRA'))
 
         if ($hClass -eq 'W' -and ($steps | Where-Object { $_.Flag -eq 'c' })) {
             if (-not $AllowWip) {
