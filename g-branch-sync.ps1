@@ -11,6 +11,7 @@ if ($branch -eq $baseBranch) {
     Write-Host "already on base branch; run: git pull origin $baseBranch"; exit 1
 }
 
+Write-Host "fetching origin/$baseBranch ..."
 $fetchOut = git -C $repo fetch origin $baseBranch 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "fetch failed"

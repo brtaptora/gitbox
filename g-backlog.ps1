@@ -3,12 +3,6 @@
 
 . (Join-Path $PSScriptRoot 'g-error-vectors.ps1')
 
-$resolveScript = Join-Path $PSScriptRoot "g-matrix-resolve.ps1"
-
-if (-not (Test-Path $resolveScript)) {
-    Write-Host "g-matrix-resolve.ps1 not found at $resolveScript"; exit 1
-}
-
 $classes = 'B','F','W'
 $dirties = 'c','d1','s1'
 $aheads  = 'a0','a1'
@@ -22,11 +16,14 @@ $gaps = foreach ($cl in $classes) {
             foreach ($be in $behinds) {
                 foreach ($pu in $pushes) {
                     foreach ($pr in $prs) {
-                        $hash = "$cl|$di|$ah|$be|$pu|$pr"
-                        # 6>&1 captures Write-Host (Information stream) into the pipeline for filtering
-                        ("$hash" | & $resolveScript 6>&1) |
-                            ForEach-Object { "$_" } |
-                            Where-Object   { $_ -match 'GAP\[' }
+                        $r = Resolve-MatrixAction -Hash "$cl|$di|$ah|$be|$pu|$pr"
+                        if ($r -and $r.Dim) {
+                            $req     = $GapRequirements[$r.Dim]
+                            $covered = $req -and (@($req | Where-Object { $_ -in $AllCapabilities }).Count -eq $req.Count)
+                            if (-not $covered) {
+                                "  $(Format-GapLabel -Class $r.Class -Dim $r.Dim -Ahead $r.Ahead -Behind $r.Behind -Pr $r.Pr)"
+                            }
+                        }
                     }
                 }
             }

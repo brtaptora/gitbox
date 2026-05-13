@@ -95,10 +95,16 @@ $skipReasons = @{
     'c' = 'nothing to commit'
     'u' = 'no unpushed commits'
     'o' = 'PR already open'
-    'x' = 'checks not failing'
+    'x' = 'PR open with passing checks'
 }
 if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
-    $scanOut = & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') 2>$null 6>&1
+    $needsPR = @($mutating | Where-Object { $_.Flag -in @('o','x') }).Count -gt 0
+    if ($needsPR) { Write-Host "scanning state ..." }
+    $scanOut = if ($needsPR) {
+        & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') 2>$null 6>&1
+    } else {
+        & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') -GitOnly 2>$null 6>&1
+    }
     $hashRaw = ($scanOut | Where-Object { "$_" -match '^[BFW]\|' }) | Select-Object -First 1
     if ($hashRaw -and "$hashRaw" -match '^([BFW])\|([^|]+)\|a\d+\|b\d+\|([PU])\|(PR[-DXOA]+)$') {
         $hClass = $Matches[1]; $hDirty = $Matches[2]; $hPush = $Matches[3]; $hPR = $Matches[4]
@@ -106,7 +112,7 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
         $skipFlags['c'] = ($hDirty -eq 'c')
         $skipFlags['u'] = ($hPush  -eq 'P')
         $skipFlags['o'] = ($hPR -in @('PRO','PRA'))
-        $skipFlags['x'] = ($hPR -ne 'PRX')
+        $skipFlags['x'] = ($hPR -in @('PRO','PRA'))
 
         if ($hClass -eq 'W' -and ($steps | Where-Object { $_.Flag -eq 'c' })) {
             if (-not $AllowWip) {

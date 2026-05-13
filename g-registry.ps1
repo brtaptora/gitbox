@@ -75,6 +75,11 @@ foreach ($flag in $FlagScripts.Keys) {
     if (Test-Path $sp) { $FlagCapabilities[$flag] = Get-ScriptCapabilities -Path $sp }
 }
 
+$AllCapabilities = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($caps in $FlagCapabilities.Values) {
+    foreach ($cap in $caps) { [void]$AllCapabilities.Add($cap) }
+}
+
 # Named flag sequences for the gitbox orchestrator
 $WorkflowRegistry = [ordered]@{
     start   = 'b'
@@ -111,13 +116,14 @@ function Get-GitboxConfig {
 function Get-GitRepoState {
     param(
         [string]$RepoPath = (Get-Location),
-        [int]$RunLimit = 0
+        [int]$RunLimit = 0,
+        [switch]$GitOnly
     )
     $branch = git -C $RepoPath branch --show-current 2>$null
     if (-not $branch) { return $null }
 
     $baseBranch = (Get-GitboxConfig -RepoPath $RepoPath).BaseBranch
-    $repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
+    $repoName   = if (-not $GitOnly) { gh repo view --json nameWithOwner -q .nameWithOwner 2>$null } else { $null }
 
     $ahead = 0; $behind = 0
     if (git -C $RepoPath rev-parse --verify "origin/$baseBranch" 2>$null) {
@@ -132,7 +138,7 @@ function Get-GitRepoState {
     } else { -1 }
 
     $pr = $null
-    if ($repoName) {
+    if (-not $GitOnly -and $repoName) {
         $prJson = gh pr list --repo $repoName --head $branch --json number,state,title,reviewDecision,statusCheckRollup 2>$null | ConvertFrom-Json
         if ($prJson -and $prJson.Count -gt 0) { $pr = $prJson[0] }
     }

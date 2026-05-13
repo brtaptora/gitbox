@@ -29,6 +29,7 @@ if (1 -ge $Steps) { exit 0 }
 
 # Step 2: merge
 # gh pr merge exit code is the only reliable signal; stderr must be captured to surface failures
+Write-Host "merging #$prNumber ..."
 $mergeOut = gh pr merge $prNumber --repo $repoName --merge 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "merge failed: PR #$prNumber not merged; branch '$branch' preserved"
