@@ -93,6 +93,7 @@ $WorkflowRegistry = [ordered]@{
     checks  = 'x'
     merge   = 'm'
     revert  = 'v'
+    draft   = 'rcuo'
     land    = 'cxm'
     ship    = 'xm'
     full    = 'cuoxm'
