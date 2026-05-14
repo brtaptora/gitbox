@@ -23,7 +23,7 @@ gitbox x
 gitbox m
 ```
 
-Flags stack — multiple flags in one call, args consumed left-to-right:
+Stack multiple flags in one call. Args are consumed left-to-right:
 
 ```powershell
 # commit then open PR (two args: one for c, one for o)
@@ -93,7 +93,9 @@ Place `.gitbox.json` in the repo root to declare the branch topology for that re
 ```json
 {
   "BaseBranch": "develop",
-  "DefaultBranch": "main"
+  "DefaultBranch": "main",
+  "MergeStrategy": "squash",
+  "Editor": true
 }
 ```
 
@@ -101,8 +103,10 @@ Place `.gitbox.json` in the repo root to declare the branch topology for that re
 |-------|---------|---------|
 | `BaseBranch` | value of `DefaultBranch` | Branch that feature branches are created from and PRs target |
 | `DefaultBranch` | result of `gh repo view --json defaultBranchRef` | Release / trunk branch; fallback when `BaseBranch` is absent |
+| `MergeStrategy` | `merge` | Merge strategy for `m`: `merge`, `squash`, or `rebase`. Overridden per call with `-Squash` / `-Rebase`. |
+| `Editor` | `false` | When `true`, `c` and `o` open `$GIT_EDITOR` when called without an arg instead of prompting with `Read-Host` |
 
-When no config file exists both fields fall back to `gh repo view`. Omit the file entirely for single-trunk repos where base and default are the same branch.
+When no config file exists all fields fall back to defaults. Omit the file entirely for single-trunk repos where base and default are the same branch.
 
 ## Install as module
 
@@ -114,7 +118,7 @@ Each script has a `g-` alias and a verb-noun function name. Either form works af
 
 ## Orchestrator
 
-`gitbox.ps1` sequences flags into a pipeline. Lowercase flags are mutating and run in a fixed canonical order; uppercase flags are diagnostic and run after all mutating steps. The pipeline halts immediately on the first failure.
+`gitbox.ps1` sequences flags into a pipeline. Lowercase flags are mutating and run in a fixed canonical order. Uppercase flags are diagnostic and run after all mutating steps. The pipeline halts immediately on the first failure.
 
 ```powershell
 gitbox <flags|workflow> [arg ...] [-AllowWip]
@@ -127,13 +131,18 @@ gitbox <flags|workflow> [arg ...] [-AllowWip]
 | `b` | Create branch from base | branch name |
 | `r` | Rename current branch | branch name |
 | `s` | Fetch and rebase onto base | — |
-| `c` | Stage all, commit, push | commit message |
+| `c` | Stage all, commit, push | commit message (optional, prompts if absent) |
+| `v` | Revert a commit | ref (optional, defaults to HEAD) |
 | `u` | Push unpushed commits | — |
-| `o` | Open PR against default branch | PR title |
+| `o` | Open PR against base branch | PR title (optional, prompts or uses `--fill` if absent) |
 | `x` | Report CI check results | — |
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
 | `z` | Release: open PR to default branch, check CI, merge, tag, push tag | version (optional) |
+| `H` | Unified health report | — |
 | `Q` | One-line repo status | — |
+| `L` | Log commits ahead of base | — |
+| `D` | Diff stats for staged and unstaged changes | — |
+| `P` | PR detail: title, state, reviews, checks | — |
 | `S` | Emit state hash and recommended action | — |
 | `B` | List unhandled workflow states | — |
 | `C` | Score script coverage | — |
@@ -145,26 +154,30 @@ Arguments are positional and consumed left-to-right by flags that need one.
 
 ### Named workflows
 
-| Name | Flags | What it does |
-|------|-------|-------------|
-| `start` | `b` | Create branch |
-| `rename` | `r` | Rename branch |
-| `sync` | `s` | Rebase onto base |
-| `commit` | `c` | Stage, commit, push |
-| `push` | `u` | Push |
-| `pr` | `o` | Open PR |
-| `checks` | `x` | Check CI |
-| `merge` | `m` | Merge and rotate (to `wip/` or named branch) |
-| `ship` | `cxm` | Commit, check CI, merge |
-| `full` | `cuoxm` | Commit, push, open PR, check CI, merge |
-| `release` | `z` | Promote base branch to default and tag |
+| Name | Flags | Use when |
+|------|-------|---------|
+| `start` | `b` | Beginning a new ticket from the base branch |
+| `rename` | `r` | Promoting a wip branch to a feature branch before opening a PR |
+| `sync` | `s` | Branch is behind base and needs to catch up before a PR |
+| `commit` | `c` | Saving incremental progress on an in-progress PR |
+| `push` | `u` | Pushing commits made outside gitbox |
+| `pr` | `o` | Opening a PR on an already-pushed branch |
+| `checks` | `x` | Inspecting CI status mid-review without merging |
+| `merge` | `m` | Merging an approved PR and rotating to the next branch |
+| `revert` | `v` | Undoing a commit. Pair with `push` as `gitbox vu` to also push the revert. |
+| `draft` | `rcuo` | Starting a new feature from a wip branch. `r` is skipped automatically on feature branches. |
+| `land` | `cxm` | Final commit on a branch with an open PR. CI is verified before merge. |
+| `ship` | `xm` | Merging a clean, already-committed branch; CI must pass |
+| `full` | `cuoxm` | One-shot first pass on a new feature: every step from commit through merge |
+| `release` | `z` | Promoting develop to main with a version tag |
+| `health` | `H` | Auditing script coverage and gap analysis |
 
 ### Workflow-prefix compounds
 
 A workflow name can be used as a prefix: the orchestrator expands the workflow, then appends the remaining characters as raw flags. Names are matched longest-first so no short name shadows a longer one.
 
 ```powershell
-gitbox mX        # m + X: merge and view CI logs (raw flag string — 'm' is not a workflow prefix here)
+gitbox mX        # m + X: merge and view CI logs ('m' is a raw flag, not a workflow prefix)
 gitbox shipX     # ship → cxm, append X → cxmX: commit, check CI, merge, view CI logs
 gitbox fullX     # full → cuoxm, append X → cuoxmX: full workflow then view CI logs
 gitbox prX       # pr → o, append X → oX: open PR then view CI logs
@@ -177,6 +190,7 @@ Before executing mutating flags the orchestrator scans the current matrix state 
 | Flag | Skipped when |
 |------|-------------|
 | `b` | Already on a feature branch |
+| `r` | Already on a feature branch AND part of a compound sequence (standalone `gitbox r` always runs) |
 | `c` | Nothing to commit or stage |
 | `u` | All commits already pushed |
 | `o` | PR already open or approved |
@@ -186,7 +200,9 @@ A skipped flag prints `skip <flag> (<name>): <reason>` and the pipeline continue
 
 ### Guards
 
-The `c` flag (and any workflow that includes `c`) detects when the current branch is an unnamed `wip/` branch and pauses to prompt for a new name. Enter a name to rename the branch and continue; press Enter to proceed on the wip branch as-is.
+The `c` flag (and any workflow containing `c`) detects when the current branch is an unnamed `wip/` branch and pauses to prompt for a new name. Enter a name to rename the branch and continue. Press Enter to proceed on the wip branch as-is.
+
+The `draft` workflow handles this automatically: pass the feature branch name as the first arg and `r` runs before `c`, so the rename happens without a prompt. On a feature branch `r` is skipped and the remaining args flow straight to `c` and `o`.
 
 To skip the prompt entirely and always commit on the wip branch, pass `-AllowWip`:
 
@@ -336,15 +352,15 @@ S = C × D × A × B × P × R
 
 `g-matrix-resolve` accepts a hash and returns the recommended next action. Rules fire top-to-bottom; the first match wins:
 
-1. Class `B` (on base branch) — prompt to create a feature branch
-2. Class `W` (on wip branch) — prompt to rename to a feature branch
+1. Class `B` (on base branch): create a feature branch
+2. Class `W` (on wip branch): rename to a feature branch
 3. Class `F`:
-   1. Secret files present (`sN`) — block until secrets removed
-   2. Behind base (`b>0`) — rebase first
-   3. Checks failed (`PRX`) — fix CI
-   4. PR open or approved (`PRO` / `PRA`) — commit if dirty, then merge-rotate
-   5. Draft PR (`PRD`) — commit if dirty, else mark ready
-   6. No PR (`PR-`) — commit if dirty; push+open-PR if pushed ahead; push first if unpushed ahead; nothing to do if clean and not ahead
+   1. Secret files present (`sN`): block until secrets removed
+   2. Behind base (`b>0`): rebase first
+   3. Checks failed (`PRX`): fix CI
+   4. PR open or approved (`PRO` / `PRA`): commit if dirty, then merge-rotate
+   5. Draft PR (`PRD`): commit if dirty, else mark ready
+   6. No PR (`PR-`): commit if dirty. Push and open PR if pushed ahead. Push first if unpushed ahead. Nothing to do if clean and not ahead.
 
 Priority order encodes a dependency graph: you cannot safely open a PR while behind, and you cannot merge while checks are failing. Each rule removes the precondition that blocks the next step.
 
@@ -366,7 +382,7 @@ Workflow W covers gap dimension G when the union of capability sets across all f
 covers(W, G) = true  iff  ⋃_{f ∈ flags(W)} caps(f)  ⊇  requirements(G)
 ```
 
-`g-matrix-resolve` applies the same check at runtime: before emitting `GAP[dim]` it tests whether the union of all registered `$FlagCapabilities` satisfies `$GapRequirements[dim]`. If coverage exists the label is suppressed. Adding a new script with the right capabilities automatically closes the gap — no edits to `g-matrix-resolve` required.
+`g-matrix-resolve` applies the same check at runtime: before emitting `GAP[dim]` it tests whether the union of all registered `$FlagCapabilities` satisfies `$GapRequirements[dim]`. If coverage exists the label is suppressed. Adding a new script with the right capabilities automatically closes the gap with no edits to `g-matrix-resolve` required.
 
 ### Capabilities scan (`g-capabilities`)
 
@@ -380,7 +396,7 @@ score(S, G) = |caps(S) ∩ requirements(G)| / |requirements(G)|
 
 A score of 1.0 means the script alone satisfies all requirements for that gap. Scores below 1.0 indicate partial coverage; the missing capabilities are shown inline.
 
-The optimization score (`gitbox O`) measures capability density — how much work a script does relative to its size:
+The optimization score (`gitbox O`) measures capability density: how much work a script does relative to its size:
 
 ```
 density(S) = |caps(S)| / non-blank-non-comment-lines(S)
