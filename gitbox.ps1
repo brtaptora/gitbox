@@ -100,10 +100,11 @@ $mutating = @($steps | Where-Object { $_.Flag -cmatch '[a-z]' })
 $ran      = [System.Collections.Generic.List[string]]::new()
 
 # --- Track B: matrix pre-check — skip flags whose work is already done ---
-$skippableFlags = @('b','c','u','o','x')
+$skippableFlags = @('b','r','c','u','o','x')
 $skipFlags = @{}
 $skipReasons = @{
     'b' = 'already on feature branch'
+    'r' = 'already on feature branch'
     'c' = 'nothing to commit'
     'u' = 'no unpushed commits'
     'o' = 'PR already open'
@@ -121,6 +122,7 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
     if ($hashRaw -and "$hashRaw" -match '^([BFW])\|([^|]+)\|a\d+\|b\d+\|([PU])\|(PR[-DXOA]+)$') {
         $hClass = $Matches[1]; $hDirty = $Matches[2]; $hPush = $Matches[3]; $hPR = $Matches[4]
         $skipFlags['b'] = ($hClass -eq 'F')
+        $skipFlags['r'] = ($hClass -ne 'W') -and ($mutating.Count -gt 1)
         $skipFlags['c'] = ($hDirty -eq 'c')
         $skipFlags['u'] = ($hPush  -eq 'P')
         $skipFlags['o'] = ($hPR -in @('PRO','PRA'))
