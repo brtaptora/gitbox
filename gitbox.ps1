@@ -115,9 +115,16 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
         $skipFlags['x'] = ($hPR -in @('PRO','PRA'))
 
         if ($hClass -eq 'W' -and ($steps | Where-Object { $_.Flag -eq 'c' })) {
-            if (-not $AllowWip) {
+            $hasRename = [bool]($steps | Where-Object { $_.Flag -in @('r','b') })
+            if (-not $AllowWip -and -not $hasRename) {
                 $wipBranch = git branch --show-current 2>$null
-                $newName = Read-Host "gitbox: on wip branch '$wipBranch'. Enter new branch name (Enter to proceed as wip)"
+                $newName = $null
+                try {
+                    $newName = Read-Host "gitbox: on wip branch '$wipBranch'. Enter new branch name (Enter to proceed as wip)"
+                } catch {
+                    Write-Host "gitbox: on wip branch '$wipBranch' -- rename first (gitbox r) or pass -AllowWip to proceed as-is"
+                    exit 1
+                }
                 if ($newName) {
                     $newName | & (Join-Path $PSScriptRoot 'g-branch-rename.ps1')
                     if ($LASTEXITCODE -ne 0) { Write-Host "gitbox: rename failed"; exit $LASTEXITCODE }

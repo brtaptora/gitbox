@@ -63,7 +63,7 @@ function Resolve-MatrixAction {
         if    ($dirty -like 's*')                    { $action = 'gitbox c is blocked -- remove secret-pattern files from working tree' }
         elseif ($behind -gt 0)                       { $dim = 'BEHIND'; $action = 'gitbox s' }
         elseif ($pr -eq 'PRX')                       { $dim = 'CHECKS'; $action = 'fix CI failures, then: gitbox x' }
-        elseif ($pr -in @('PRO','PRA'))               { $action = if ($dirty -like 'd*') { 'gitbox ship "<message>"' } else { 'gitbox m' } }
+        elseif ($pr -in @('PRO','PRA'))               { $action = if ($dirty -like 'd*') { 'gitbox land "<message>"' } else { 'gitbox ship' } }
         elseif ($pr -eq 'PRD')                        { $action = if ($dirty -like 'd*') { 'gitbox c "<message>"  (draft PR open)' } else { 'mark PR ready: gh pr ready' } }
         elseif ($pr -eq 'PR-') {
             if    ($dirty -like 'd*')                { $action = 'gitbox c "<message>"' }
