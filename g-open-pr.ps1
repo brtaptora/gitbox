@@ -1,6 +1,6 @@
 param(
-    [Parameter(ValueFromPipeline, Mandatory)]
-    [string]$Title,
+    [Parameter(ValueFromPipeline)]
+    [string]$Title = "",
 
     [string]$Body = "",
     [string]$Base = ""
@@ -28,10 +28,13 @@ process {
         exit 0
     }
 
-    $target    = if ($Base) { $Base } else { $baseBranch }
-    $bodyValue = if ($Body) { $Body } else { "" }
+    $target = if ($Base) { $Base } else { $baseBranch }
     Write-Host "opening PR ..."
-    $url = gh pr create --repo $repoName --title $Title --base $target --body $bodyValue 2>&1
+    $url = if ($Title) {
+        gh pr create --repo $repoName --title $Title --base $target --body $Body 2>&1
+    } else {
+        gh pr create --repo $repoName --fill --base $target 2>&1
+    }
     if ($LASTEXITCODE -ne 0) { Write-Host "pr create failed"; $url | ForEach-Object { Write-Host "  $_" }; exit 1 }
     $number = $url -replace ".*/pull/", ""
 

@@ -153,7 +153,7 @@ while ($i -lt $mutating.Count) {
 
     $stepExit = $LASTEXITCODE
     if ($stepExit -ne 0) {
-        # Consult matrix-resolve for a recoverable next action; one attempt per step to prevent loops
+        # Consult matrix-resolve; each recovered flag is added to $ran so it cannot be reused (loop guard)
         $recovered = $false
         $scanOut   = & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') 2>$null 6>&1
         $hashLine  = ($scanOut | Where-Object { "$_" -match '^[BFW]\|' }) | Select-Object -First 1
@@ -167,23 +167,23 @@ while ($i -lt $mutating.Count) {
                     Where-Object { $FlagMap.Contains([string]$_) -and [string]$_ -notin $ran.ToArray() } |
                     Select-Object -First 1)
                 if ($recoveryFlag) {
-                    $rInfo = $FlagMap[$recoveryFlag]
-                    $rName = $rInfo.Script -replace '\.ps1$','' -replace '^g-',''
+                    $rInfo   = $FlagMap[$recoveryFlag]
+                    $rName   = $rInfo.Script -replace '\.ps1$','' -replace '^g-',''
+                    $rScript = Join-Path $PSScriptRoot $rInfo.Script
                     Write-Host "  matrix suggests: $("$nextLine".Trim())"
-                    $answer = Read-Host "  run $recoveryFlag ($rName) to recover? [Y/n]"
-                    if ($answer -eq '' -or $answer -match '^[Yy]') {
-                        $rScript = Join-Path $PSScriptRoot $rInfo.Script
-                        if ($rInfo.NeedsArg -eq $true) {
-                            $rArg = Read-Host "  arg for $recoveryFlag ($rName)"
-                            $rArg | & $rScript
-                        } else {
-                            & $rScript
-                        }
-                        if ($LASTEXITCODE -eq 0) {
-                            $recovered = $true
-                            $ran.Add($recoveryFlag)
-                            Write-Host "  recovered -- retrying $flag ($name)"
-                        }
+                    if ($rInfo.NeedsArg -eq $true) {
+                        $rArg = $null
+                        try { $rArg = Read-Host "  arg for $recoveryFlag ($rName)" } catch {}
+                        Write-Host "  running $recoveryFlag ($rName) ..."
+                        if ($rArg) { $rArg | & $rScript } else { & $rScript }
+                    } else {
+                        Write-Host "  running $recoveryFlag ($rName) ..."
+                        & $rScript
+                    }
+                    if ($LASTEXITCODE -eq 0) {
+                        $recovered = $true
+                        $ran.Add($recoveryFlag)
+                        Write-Host "  recovered -- retrying $flag ($name)"
                     }
                 }
             }
