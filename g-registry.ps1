@@ -101,19 +101,34 @@ $WorkflowRegistry = [ordered]@{
 function Get-GitboxConfig {
     param([string]$RepoPath = (Get-Location))
     $cfgPath = Join-Path $RepoPath '.gitbox.json'
-    $base = $null; $default = $null; $mergeStrategy = $null
+    $base = $null; $default = $null; $mergeStrategy = $null; $editor = $false
     if (Test-Path $cfgPath) {
         $cfg     = Get-Content $cfgPath -Raw | ConvertFrom-Json
         $base    = $cfg.BaseBranch
         $default = $cfg.DefaultBranch
         if ($cfg.MergeStrategy) { $mergeStrategy = $cfg.MergeStrategy.ToLower() }
+        if ($cfg.Editor)         { $editor        = [bool]$cfg.Editor }
     }
     if (-not $default) {
         $default = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
         if (-not $default) { $default = 'main' }
     }
     if (-not $base) { $base = $default }
-    return @{ BaseBranch = $base; DefaultBranch = $default; MergeStrategy = $mergeStrategy }
+    return @{ BaseBranch = $base; DefaultBranch = $default; MergeStrategy = $mergeStrategy; Editor = $editor }
+}
+
+function Invoke-GitboxEditor {
+    param([string]$Template = '')
+    $editorCmd = git var GIT_EDITOR 2>$null
+    if (-not $editorCmd) { $editorCmd = $env:EDITOR }
+    if (-not $editorCmd) { Write-Host "no editor configured; set core.editor in git config"; return $null }
+    $tmp = [System.IO.Path]::GetTempFileName() + ".txt"
+    if ($Template) { Set-Content $tmp $Template -Encoding UTF8 }
+    & $editorCmd $tmp
+    if ($LASTEXITCODE -ne 0) { Remove-Item $tmp -ErrorAction SilentlyContinue; return $null }
+    $content = ((Get-Content $tmp -Encoding UTF8 | Where-Object { $_ -notmatch '^\s*#' }) -join "`n").Trim()
+    Remove-Item $tmp -ErrorAction SilentlyContinue
+    return if ($content) { $content } else { $null }
 }
 
 function Get-GitRepoState {

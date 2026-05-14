@@ -1,5 +1,5 @@
 param(
-    [Parameter(ValueFromPipeline, Mandatory)]
+    [Parameter(ValueFromPipeline)]
     [string]$Message
 )
 
@@ -26,6 +26,22 @@ process {
     if ($LASTEXITCODE -ne 0) { Write-Host "stage failed"; $addOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
     $staged = (git -C $repo diff --cached --name-only 2>$null | Measure-Object -Line).Lines
     if ($staged -eq 0) { Write-Host "nothing to commit"; exit 0 }
+
+    if (-not $Message) {
+        $cfg = Get-GitboxConfig -RepoPath $repo
+        if ($cfg.Editor) {
+            $Message = Invoke-GitboxEditor -Template "# Commit message (first line is subject)`n# Lines starting with # are stripped"
+            if (-not $Message) { Write-Host "no commit message; aborting"; exit 1 }
+        } else {
+            try {
+                $Message = Read-Host "  commit message"
+            } catch {
+                Write-Host "no commit message; pass a message or enable Editor in .gitbox.json"
+                exit 1
+            }
+            if (-not $Message) { Write-Host "no commit message; aborting"; exit 1 }
+        }
+    }
 
     $commitOut = git -C $repo commit -m $Message 2>&1
     if ($LASTEXITCODE -ne 0) { Write-Host "commit failed"; $commitOut | ForEach-Object { Write-Host "  $_" }; exit 1 }

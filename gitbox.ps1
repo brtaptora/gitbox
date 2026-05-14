@@ -1,6 +1,6 @@
 # Flag-stack orchestrator. Routes flag sequences to scripts in canonical order.
 # Usage: gitbox <flags|workflow> [arg ...] [-AllowWip]
-# Flags: b=branch-create r=rename s=sync c=commit u=push o=open-pr x=pr-checks m=merge-rotate z=release
+# Flags: b=branch-create r=rename s=sync c=commit v=revert u=push o=open-pr x=pr-checks m=merge-rotate z=release
 #        H=health Q=status L=log D=diff P=pr-view
 #        S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize X=run-logs
 # -AllowWip: skip the wip-branch rename prompt and commit on the wip branch as-is
@@ -22,9 +22,10 @@ $FlagMap = [System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)
 $FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true;  Force = $true }
 $FlagMap['r'] = @{ Script = 'g-branch-rename.ps1';  NeedsArg = $true  }
 $FlagMap['s'] = @{ Script = 'g-branch-sync.ps1';    NeedsArg = $false }
-$FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = $true  }
+$FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = 'optional' }
+$FlagMap['v'] = @{ Script = 'g-revert.ps1';         NeedsArg = 'optional' }
 $FlagMap['u'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
-$FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = $true  }
+$FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = 'optional' }
 $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
 $FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional'; Switches = @('Squash','Rebase') }
 $FlagMap['z'] = @{ Script = 'g-release.ps1';        NeedsArg = 'optional'; Switches = @('View') }
@@ -40,7 +41,7 @@ $FlagMap['D'] = @{ Script = 'g-diff.ps1';           NeedsArg = $false }
 $FlagMap['P'] = @{ Script = 'g-pr-view.ps1';        NeedsArg = $false }
 $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','u','o','x','m','z','H','Q','L','D','P','S','B','C','W','O','X')
+$CanonicalOrder = [string[]]@('b','r','s','c','v','u','o','x','m','z','H','Q','L','D','P','S','B','C','W','O','X')
 
 # Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) {
