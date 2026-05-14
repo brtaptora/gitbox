@@ -4,6 +4,7 @@ $GapRequirements = @{
     BEHIND  = @('REBASE', 'PULL')
     CHECKS  = @('PR_CHECKS')
     NO_PUSH = @('PUSH')
+    NO_PR   = @('PR_CREATE')
 }
 
 # [ordered] so specific patterns match before generic subsets (e.g. BRANCH_CREATE before CHECKOUT)
@@ -163,3 +164,19 @@ function Get-GitRepoState {
         Runs         = $runs
     }
 }
+
+# Populate $GapRequirements for any dim Resolve-MatrixAction uses that isn't in the static map.
+# Runs once at load time; pure in-memory — no I/O. Eliminates the manual step when adding a new dim.
+foreach ($cl_ in 'B','F','W') { foreach ($di_ in 'c','d1','s1') {
+    foreach ($ah_ in 'a0','a1') { foreach ($be_ in 'b0','b1') {
+        foreach ($pu_ in 'P','U') { foreach ($pr_ in 'PR-','PRD','PRO','PRX','PRA') {
+            $ar_ = Resolve-MatrixAction -Hash "$cl_|$di_|$ah_|$be_|$pu_|$pr_"
+            if ($ar_ -and $ar_.Dim -and -not $GapRequirements.ContainsKey($ar_.Dim)) {
+                if ($ar_.Action -match 'gitbox\s+([a-z])') {
+                    $af_ = $Matches[1]
+                    if ($FlagCapabilities.ContainsKey($af_)) {
+                        $GapRequirements[$ar_.Dim] = [string[]]$FlagCapabilities[$af_]
+                    }
+                }
+            }
+        } } } } } }

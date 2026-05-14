@@ -67,7 +67,7 @@ function Resolve-MatrixAction {
         elseif ($pr -eq 'PRD')                        { $action = if ($dirty -like 'd*') { 'gitbox c "<message>"  (draft PR open)' } else { 'mark PR ready: gh pr ready' } }
         elseif ($pr -eq 'PR-') {
             if    ($dirty -like 'd*')                { $action = 'gitbox c "<message>"' }
-            elseif ($ahead -gt 0 -and $push -eq 'P') { $action = 'gitbox o "<PR title>"' }
+            elseif ($ahead -gt 0 -and $push -eq 'P') { $dim = 'NO_PR'; $action = 'gitbox o "<PR title>"' }
             elseif ($ahead -gt 0 -and $push -eq 'U') { $dim = 'NO_PUSH'; $action = 'gitbox uo "<PR title>"' }
             elseif ($ahead -eq 0 -and $dirty -eq 'c') { $action = 'nothing to do; make changes first' }
         }
