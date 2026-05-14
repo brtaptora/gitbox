@@ -277,6 +277,11 @@ foreach ($step in $diag) {
             }
         }
         'O' { & (Join-Path $PSScriptRoot 'g-optimization.ps1') }
+        'H' {
+            $switchArgs = @{}
+            foreach ($a in $Rest) { if ("$a" -match '^-([A-Za-z]\w*)$') { $switchArgs[$Matches[1]] = $true } }
+            & (Join-Path $PSScriptRoot $step.Info.Script) @switchArgs
+        }
         default {
             & (Join-Path $PSScriptRoot $step.Info.Script)
         }
