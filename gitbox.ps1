@@ -142,48 +142,81 @@ while ($i -lt $mutating.Count) {
         continue
     }
 
-    $forceArg = if ($step.Info.Force) { @{ Force = $true } } else { @{} }
+    $forceArg  = if ($step.Info.Force) { @{ Force = $true } } else { @{} }
+    $stepLines = [System.Collections.Generic.List[string]]::new()
     if ($step.Info.NeedsArg -eq $true) {
-        $argQueue.Dequeue() | & $script @forceArg
+        $rawOut = $argQueue.Dequeue() | & $script @forceArg 6>&1
     } elseif ($step.Info.NeedsArg -eq 'optional' -and $argQueue.Count -gt 0) {
-        $argQueue.Dequeue() | & $script @forceArg
+        $rawOut = $argQueue.Dequeue() | & $script @forceArg 6>&1
     } else {
-        & $script @forceArg
+        $rawOut = & $script @forceArg 6>&1
     }
+    $rawOut | ForEach-Object { Write-Host "$_"; [void]$stepLines.Add("$_") }
 
     $stepExit = $LASTEXITCODE
     if ($stepExit -ne 0) {
         # Consult matrix-resolve; each recovered flag is added to $ran so it cannot be reused (loop guard)
-        $recovered = $false
-        $scanOut   = & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') 2>$null 6>&1
-        $hashLine  = ($scanOut | Where-Object { "$_" -match '^[BFW]\|' }) | Select-Object -First 1
+        $recovered   = $false
+        $stepOut     = $stepLines -join "`n"
+        $errorVector = if ($stepOut) { Resolve-OutputToVector -Output $stepOut } else { $null }
+
+        $scanOut  = & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') 2>$null 6>&1
+        $hashLine = ($scanOut | Where-Object { "$_" -match '^[BFW]\|' }) | Select-Object -First 1
         if ($hashLine) {
-            $resolveOut = "$hashLine" | & (Join-Path $PSScriptRoot 'g-matrix-resolve.ps1') 6>&1
-            $nextLine   = ($resolveOut | Where-Object { "$_" -match '^\s+next:' }) | Select-Object -First 1
-            if ($nextLine -and "$nextLine" -match 'gitbox\s+([a-z]+)') {
-                $suggestion   = $Matches[1]
-                $recovFlagStr = if ($WorkflowRegistry.Contains($suggestion)) { $WorkflowRegistry[$suggestion] } else { $suggestion }
-                $recoveryFlag = [string]($recovFlagStr.ToCharArray() |
-                    Where-Object { $FlagMap.Contains([string]$_) -and [string]$_ -notin $ran.ToArray() } |
-                    Select-Object -First 1)
-                if ($recoveryFlag) {
-                    $rInfo   = $FlagMap[$recoveryFlag]
-                    $rName   = $rInfo.Script -replace '\.ps1$','' -replace '^g-',''
-                    $rScript = Join-Path $PSScriptRoot $rInfo.Script
-                    Write-Host "  matrix suggests: $("$nextLine".Trim())"
-                    if ($rInfo.NeedsArg -eq $true) {
-                        $rArg = $null
-                        try { $rArg = Read-Host "  arg for $recoveryFlag ($rName)" } catch {}
-                        Write-Host "  running $recoveryFlag ($rName) ..."
-                        if ($rArg) { $rArg | & $rScript } else { & $rScript }
-                    } else {
-                        Write-Host "  running $recoveryFlag ($rName) ..."
-                        & $rScript
-                    }
-                    if ($LASTEXITCODE -eq 0) {
-                        $recovered = $true
-                        $ran.Add($recoveryFlag)
-                        Write-Host "  recovered -- retrying $flag ($name)"
+            $r = Resolve-MatrixAction -Hash "$hashLine" -ErrorVector $errorVector
+            if ($r -and $r.Action) {
+                Write-Host "  matrix suggests: next: $($r.Action)"
+                if ($r.Action -match 'gitbox\s+([a-z]+)') {
+                    $suggestion   = $Matches[1]
+                    $recovFlagStr = if ($WorkflowRegistry.Contains($suggestion)) { $WorkflowRegistry[$suggestion] } else { $suggestion }
+                    $recoveryFlag = [string]($recovFlagStr.ToCharArray() |
+                        Where-Object { $FlagMap.Contains([string]$_) -and [string]$_ -notin $ran.ToArray() } |
+                        Select-Object -First 1)
+                    if ($recoveryFlag) {
+                        $rInfo   = $FlagMap[$recoveryFlag]
+                        $rName   = $rInfo.Script -replace '\.ps1$','' -replace '^g-',''
+                        $rScript = Join-Path $PSScriptRoot $rInfo.Script
+
+                        # Interactive: confirm before proceeding (no silent action in attended sessions).
+                        # Non-interactive: auto-proceed (no user to ask).
+                        $confirmed   = $false
+                        $interactive = $false
+                        try {
+                            $confirm     = Read-Host "  recover with $recoveryFlag ($rName)? [Y/n]"
+                            $interactive = $true
+                            $confirmed   = ($confirm -eq '' -or $confirm -match '^[Yy]')
+                        } catch {
+                            $confirmed = $true   # non-interactive: auto-proceed
+                        }
+
+                        if (-not $confirmed) {
+                            $remaining = (@($mutating | Where-Object { $_.Flag -notin $ran.ToArray() }) | ForEach-Object { $_.Flag }) -join ''
+                            Write-Host "  recovery skipped -- remaining: $remaining"
+                        } else {
+                            if ($rInfo.NeedsArg -eq $true) {
+                                $rArg = $null
+                                if ($interactive) {
+                                    $rArg = Read-Host "  arg for $recoveryFlag ($rName)"
+                                }
+                                if ($rArg) {
+                                    Write-Host "  running $recoveryFlag ($rName) [interactive] ..."
+                                    $rArg | & $rScript
+                                } else {
+                                    $mode = if ($interactive) { 'interactive' } else { 'non-interactive' }
+                                    Write-Host "  running $recoveryFlag ($rName) [$mode, --fill] ..."
+                                    & $rScript
+                                }
+                            } else {
+                                $modeTag = if ($interactive) { '' } else { ' [non-interactive]' }
+                                Write-Host "  running $recoveryFlag ($rName)$modeTag ..."
+                                & $rScript
+                            }
+                            if ($LASTEXITCODE -eq 0) {
+                                $recovered = $true
+                                $ran.Add($recoveryFlag)
+                                Write-Host "  recovered -- retrying $flag ($name)"
+                            }
+                        }
                     }
                 }
             }
