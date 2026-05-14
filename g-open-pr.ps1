@@ -28,6 +28,20 @@ process {
         exit 0
     }
 
+    if (-not $Title) {
+        $cfg = Get-GitboxConfig -RepoPath $repo
+        if ($cfg.Editor) {
+            $editorOut = Invoke-GitboxEditor -Template "# PR Title (first line)`n# PR Body (remaining lines)`n# Lines starting with # are stripped"
+            if ($editorOut) {
+                $editorLines = $editorOut -split "`n" | Where-Object { $_ }
+                $Title = $editorLines[0]
+                $Body  = ($editorLines[1..($editorLines.Count - 1)]) -join "`n"
+            }
+        } else {
+            try { $Title = Read-Host "  PR title (Enter for --fill)" } catch { }
+        }
+    }
+
     $target = if ($Base) { $Base } else { $baseBranch }
     Write-Host "opening PR ..."
     $url = if ($Title) {
