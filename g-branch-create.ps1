@@ -26,7 +26,8 @@ process {
     if ($existsLocal -or $existsRemote) {
         Write-Host "branch '$Name' already exists"
         if (-not $Force) {
-            $confirm = Read-Host "check it out? [y/N]"
+            $confirm = $null
+            try { $confirm = Read-Host "check it out? [y/N]" } catch { }
             if ($confirm -notmatch '^[yY]$') { exit 1 }
         }
         git -C $repo checkout $Name 2>&1 | Out-Null

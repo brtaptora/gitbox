@@ -14,10 +14,10 @@ $ErrorVectors = @{
     PROTECTED = @('protected branch', 'cannot force push', 'push declined')
 }
 
-function Resolve-StderrToVector {
-    param([string]$Stderr)
+function Resolve-OutputToVector {
+    param([string]$Output)
     # ToLower once; Contains is sufficient for these terse, unambiguous error strings
-    $lower = $Stderr.ToLower()
+    $lower = $Output.ToLower()
     foreach ($dim in $ErrorVectors.Keys) {
         foreach ($token in $ErrorVectors[$dim]) {
             if ($lower.Contains($token)) { return $dim }
@@ -47,7 +47,7 @@ function Format-GapLabel {
 }
 
 function Resolve-MatrixAction {
-    param([string]$Hash)
+    param([string]$Hash, [string]$ErrorVector = $null)
     $parts = $Hash -split '\|'
     if ($parts.Count -ne 6) { return $null }
     $class  = $parts[0]; $dirty = $parts[1]
@@ -63,7 +63,7 @@ function Resolve-MatrixAction {
         if    ($dirty -like 's*')                    { $action = 'gitbox c is blocked -- remove secret-pattern files from working tree' }
         elseif ($behind -gt 0)                       { $dim = 'BEHIND'; $action = 'gitbox s' }
         elseif ($pr -eq 'PRX')                       { $dim = 'CHECKS'; $action = 'fix CI failures, then: gitbox x' }
-        elseif ($pr -in @('PRO','PRA'))               { $action = if ($dirty -like 'd*') { 'gitbox ship "<message>"' } else { 'gitbox m' } }
+        elseif ($pr -in @('PRO','PRA'))               { $action = if ($dirty -like 'd*') { 'gitbox land "<message>"' } else { 'gitbox ship' } }
         elseif ($pr -eq 'PRD')                        { $action = if ($dirty -like 'd*') { 'gitbox c "<message>"  (draft PR open)' } else { 'mark PR ready: gh pr ready' } }
         elseif ($pr -eq 'PR-') {
             if    ($dirty -like 'd*')                { $action = 'gitbox c "<message>"' }
@@ -72,6 +72,16 @@ function Resolve-MatrixAction {
             elseif ($ahead -eq 0 -and $dirty -eq 'c') { $action = 'nothing to do; make changes first' }
         }
     } else { $action = "unrecognised branch class '$class'" }
+    # Error vector overrides for failure classes the hash cannot express after re-scan
+    if ($ErrorVector) {
+        switch ($ErrorVector) {
+            'AUTH'      { $action = 'fix auth: gh auth login'; $dim = $null }
+            'CONFLICT'  { $action = 'resolve conflict: git status -> fix files -> git add -> git rebase --continue'; $dim = $null }
+            'PROTECTED' { $action = 'branch is protected -- check branch protection rules'; $dim = $null }
+            'NO_REMOTE' { $action = 'no remote: git remote add origin <url>'; $dim = $null }
+            'NO_BRANCH' { $action = 'branch not found -- check: git branch -a'; $dim = $null }
+        }
+    }
     return [pscustomobject]@{ Action = $action; Dim = $dim; Class = $class; Ahead = $ahead; Behind = $behind; Pr = $pr }
 }
 
