@@ -1,7 +1,9 @@
 param(
     [Parameter(ValueFromPipeline)]
     [string]$Name,
-    [int]$Steps = [int]::MaxValue
+    [int]$Steps = [int]::MaxValue,
+    [switch]$Squash,
+    [switch]$Rebase
 )
 
 . (Join-Path $PSScriptRoot 'g-registry.ps1')
@@ -29,8 +31,16 @@ if (1 -ge $Steps) { exit 0 }
 
 # Step 2: merge
 # gh pr merge exit code is the only reliable signal; stderr must be captured to surface failures
+$mergeFlag = '--merge'
+if ($Squash)       { $mergeFlag = '--squash' }
+elseif ($Rebase)   { $mergeFlag = '--rebase' }
+else {
+    $cfgStrategy = (Get-GitboxConfig -RepoPath $repo).MergeStrategy
+    if ($cfgStrategy -eq 'squash') { $mergeFlag = '--squash' }
+    elseif ($cfgStrategy -eq 'rebase') { $mergeFlag = '--rebase' }
+}
 Write-Host "merging #$prNumber ..."
-$mergeOut = gh pr merge $prNumber --repo $repoName --merge 2>&1
+$mergeOut = gh pr merge $prNumber --repo $repoName $mergeFlag 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "merge failed: PR #$prNumber not merged; branch '$branch' preserved"
     $mergeOut | ForEach-Object { Write-Host "  $_" }

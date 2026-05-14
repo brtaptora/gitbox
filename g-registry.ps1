@@ -101,18 +101,19 @@ $WorkflowRegistry = [ordered]@{
 function Get-GitboxConfig {
     param([string]$RepoPath = (Get-Location))
     $cfgPath = Join-Path $RepoPath '.gitbox.json'
-    $base = $null; $default = $null
+    $base = $null; $default = $null; $mergeStrategy = $null
     if (Test-Path $cfgPath) {
         $cfg     = Get-Content $cfgPath -Raw | ConvertFrom-Json
         $base    = $cfg.BaseBranch
         $default = $cfg.DefaultBranch
+        if ($cfg.MergeStrategy) { $mergeStrategy = $cfg.MergeStrategy.ToLower() }
     }
     if (-not $default) {
         $default = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
         if (-not $default) { $default = 'main' }
     }
     if (-not $base) { $base = $default }
-    return @{ BaseBranch = $base; DefaultBranch = $default }
+    return @{ BaseBranch = $base; DefaultBranch = $default; MergeStrategy = $mergeStrategy }
 }
 
 function Get-GitRepoState {
