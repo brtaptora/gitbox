@@ -26,8 +26,8 @@ $FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = $true  }
 $FlagMap['u'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
 $FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = $true  }
 $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
-$FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional' }
-$FlagMap['z'] = @{ Script = 'g-release.ps1';        NeedsArg = 'optional' }
+$FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional'; Switches = @('Squash','Rebase') }
+$FlagMap['z'] = @{ Script = 'g-release.ps1';        NeedsArg = 'optional'; Switches = @('View') }
 $FlagMap['Q'] = @{ Script = 'g-status.ps1';         NeedsArg = $false }
 $FlagMap['S'] = @{ Script = 'g-matrix-scan.ps1';    NeedsArg = $false }
 $FlagMap['B'] = @{ Script = 'g-backlog.ps1';        NeedsArg = $false }
@@ -74,7 +74,8 @@ foreach ($f in $CanonicalOrder) {
 
 # Verify arg count before executing anything; 'optional' flags are not counted as required
 $argSteps = @($steps | Where-Object { $_.Info.NeedsArg -eq $true })
-$argCount  = ($Rest ? $Rest.Count : 0) + ($PipelineArg ? 1 : 0)
+$posArgs  = if ($Rest) { @($Rest | Where-Object { "$_" -notmatch '^-' }) } else { @() }
+$argCount  = $posArgs.Count + ($PipelineArg ? 1 : 0)
 if ($argCount -lt $argSteps.Count) {
     $missing = $argSteps[$argCount]
     $name    = $missing.Info.Script -replace '\.ps1$','' -replace '^g-',''
@@ -84,9 +85,15 @@ if ($argCount -lt $argSteps.Count) {
 }
 
 # --- Execute mutating steps ---
-$argQueue = [System.Collections.Generic.Queue[string]]::new()
+$argQueue    = [System.Collections.Generic.Queue[string]]::new()
+$restSwitches = @{}
 if ($PipelineArg) { $argQueue.Enqueue($PipelineArg) }
-if ($Rest) { foreach ($a in $Rest) { $argQueue.Enqueue($a) } }
+if ($Rest) {
+    foreach ($a in $Rest) {
+        if ("$a" -match '^-([A-Za-z]\w*)$') { $restSwitches[$Matches[1]] = $true }
+        else { $argQueue.Enqueue($a) }
+    }
+}
 
 $mutating = @($steps | Where-Object { $_.Flag -cmatch '[a-z]' })
 $ran      = [System.Collections.Generic.List[string]]::new()
@@ -153,14 +160,21 @@ while ($i -lt $mutating.Count) {
         continue
     }
 
-    $forceArg  = if ($step.Info.Force) { @{ Force = $true } } else { @{} }
+    $forceArg    = if ($step.Info.Force) { @{ Force = $true } } else { @{} }
+    $stepSwitches = @{}
+    if ($step.Info.Switches) {
+        foreach ($sw in $step.Info.Switches) {
+            if ($restSwitches.ContainsKey($sw)) { $stepSwitches[$sw] = $true }
+        }
+    }
+    $splatArgs = $forceArg + $stepSwitches
     $stepLines = [System.Collections.Generic.List[string]]::new()
     if ($step.Info.NeedsArg -eq $true) {
-        $rawOut = $argQueue.Dequeue() | & $script @forceArg 6>&1
+        $rawOut = $argQueue.Dequeue() | & $script @splatArgs 6>&1
     } elseif ($step.Info.NeedsArg -eq 'optional' -and $argQueue.Count -gt 0) {
-        $rawOut = $argQueue.Dequeue() | & $script @forceArg 6>&1
+        $rawOut = $argQueue.Dequeue() | & $script @splatArgs 6>&1
     } else {
-        $rawOut = & $script @forceArg 6>&1
+        $rawOut = & $script @splatArgs 6>&1
     }
     $rawOut | ForEach-Object { Write-Host "$_"; [void]$stepLines.Add("$_") }
 

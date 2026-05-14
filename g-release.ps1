@@ -1,11 +1,22 @@
 param(
     [Parameter(ValueFromPipeline)]
-    [string]$Version
+    [string]$Version,
+    [switch]$View
 )
 
 . (Join-Path $PSScriptRoot 'g-registry.ps1')
 
-$repo  = Get-Location
+$repo   = Get-Location
+$branch = git -C $repo branch --show-current 2>$null
+if (-not $branch) { Write-Host "not a git repo"; exit 1 }
+
+if ($View) {
+    $tags = @(git -C $repo tag --sort=-version:refname 2>$null | Select-Object -First 10)
+    if ($tags.Count -eq 0) { Write-Host "no releases found"; exit 0 }
+    $tags | ForEach-Object { Write-Host $_ }
+    exit 0
+}
+
 $state = Get-GitRepoState
 $cfg   = Get-GitboxConfig -RepoPath $repo
 
