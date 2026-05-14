@@ -1,7 +1,8 @@
 # Flag-stack orchestrator. Routes flag sequences to scripts in canonical order.
 # Usage: gitbox <flags|workflow> [arg ...] [-AllowWip]
 # Flags: b=branch-create r=rename s=sync c=commit u=push o=open-pr x=pr-checks m=merge-rotate z=release
-#        H=health Q=status S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize X=run-logs
+#        H=health Q=status L=log D=diff P=pr-view
+#        S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize X=run-logs
 # -AllowWip: skip the wip-branch rename prompt and commit on the wip branch as-is
 
 param(
@@ -34,9 +35,12 @@ $FlagMap['C'] = @{ Script = 'g-capabilities.ps1';   NeedsArg = $false }
 $FlagMap['W'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['O'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['H'] = @{ Script = 'g-health.ps1';         NeedsArg = $false }
+$FlagMap['L'] = @{ Script = 'g-log.ps1';            NeedsArg = $false }
+$FlagMap['D'] = @{ Script = 'g-diff.ps1';           NeedsArg = $false }
+$FlagMap['P'] = @{ Script = 'g-pr-view.ps1';        NeedsArg = $false }
 $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','u','o','x','m','z','H','Q','S','B','C','W','O','X')
+$CanonicalOrder = [string[]]@('b','r','s','c','u','o','x','m','z','H','Q','L','D','P','S','B','C','W','O','X')
 
 # Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) {
