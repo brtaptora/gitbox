@@ -2,7 +2,7 @@
 
 PowerShell git workflow suite. Works standalone (call `.ps1` files directly) or as a module (`Import-Module .\gitbox.psd1`).
 
-## Quick start
+## Quick Start
 
 Each flag maps to one operation. Run them individually or stack them in a single call:
 
@@ -55,7 +55,7 @@ gitbox x                     # check CI
 gitbox m                     # merge, delete branch, land on wip
 ```
 
-Steps 2–5 compress once a PR is open:
+Steps 2-5 compress once a PR is open:
 
 ```powershell
 gitbox ship "fix the thing"              # c + x + m
@@ -67,7 +67,7 @@ Or the full journey in one call when there is no PR yet:
 gitbox full "fix the thing" "Fix the thing"   # c + u + o + x + m
 ```
 
-The orchestrator section below covers all flags, stacking rules, and skip behavior in detail.
+The orchestrator section covers all flags, stacking rules, and skip behavior in detail.
 
 ## Prerequisites
 
@@ -108,13 +108,13 @@ Place `.gitbox.json` in the repo root to declare the branch topology for that re
 
 When no config file exists all fields fall back to defaults. Omit the file entirely for single-trunk repos where base and default are the same branch.
 
-## Install as module
+## Install As Module
 
 ```powershell
 Import-Module .\gitbox.psd1
 ```
 
-Each script has a `g-` alias and a verb-noun function name. Either form works after import.
+Each script has a `g-` alias and a verb-noun function name. Either form works after import. The module also exports `gitbox` and `gb` as aliases for the orchestrator, and registers tab completion for both.
 
 ## Orchestrator
 
@@ -122,11 +122,30 @@ Each script has a `g-` alias and a verb-noun function name. Either form works af
 
 ```powershell
 gitbox <flags|workflow> [arg ...] [-AllowWip]
+gb     <flags|workflow> [arg ...] [-AllowWip]
 ```
 
-### Flags
+`gb` is an alias for `gitbox`. Both commands are equivalent in all contexts.
 
-| Flag | What it does | Needs arg |
+### Built-in Commands
+
+| Command | Output |
+|---------|--------|
+| `gitbox` or `gitbox --help` | Full flag and workflow reference |
+| `gitbox --version` | Version string read from the module manifest |
+
+### Tab Completion
+
+When loaded as a module, gitbox registers an argument completer for both `gitbox` and `gb`. Pressing Tab after either command offers all flags and named workflows. The completer runs a fast git-only state scan and surfaces the matrix-recommended next action as the first suggestion.
+
+```powershell
+gitbox <Tab>     # → ship (or whatever the matrix says is next), then all workflows and flags
+gb lan<Tab>      # → land
+```
+
+### Operational Flags
+
+| Flag | Operation | Argument |
 |------|-------------|-----------|
 | `b` | Create branch from base | branch name |
 | `r` | Rename current branch | branch name |
@@ -138,23 +157,27 @@ gitbox <flags|workflow> [arg ...] [-AllowWip]
 | `x` | Report CI check results | — |
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
 | `z` | Release: open PR to default branch, check CI, merge, tag, push tag | version (optional) |
-| `H` | Unified health report | — |
-| `Q` | One-line repo status | — |
-| `L` | Log commits ahead of base | — |
-| `D` | Diff stats for staged and unstaged changes | — |
-| `P` | PR detail: title, state, reviews, checks | — |
-| `S` | Emit state hash and recommended action | — |
-| `B` | List unhandled workflow states | — |
-| `C` | Score script coverage | — |
-| `W` | Print workflow registry | — |
-| `O` | Print optimization scores | — |
-| `X` | Fetch CI run logs grouped by step | — |
+### Diagnostic Flags
 
-Arguments are positional and consumed left-to-right by flags that need one.
+| Flag | Operation |
+|------|-------------|
+| `Q` | One-line repo status |
+| `L` | Log commits ahead of base |
+| `D` | Diff stats for staged and unstaged changes |
+| `P` | PR detail: title, state, reviews, checks |
+| `S` | Emit state hash and recommended action |
+| `B` | List unhandled workflow states |
+| `C` | Score script coverage |
+| `W` | Print workflow registry |
+| `O` | Print optimization scores |
+| `X` | Fetch CI run logs grouped by step |
+| `H` | Unified gitbox health report |
 
-### Named workflows
+Arguments are positional and consumed left to right by flags that need one.
 
-| Name | Flags | Use when |
+### Named Workflows
+
+| Alias | Flags | Use Case |
 |------|-------|---------|
 | `start` | `b` | Beginning a new ticket from the base branch |
 | `rename` | `r` | Promoting a wip branch to a feature branch before opening a PR |
@@ -167,15 +190,16 @@ Arguments are positional and consumed left-to-right by flags that need one.
 | `revert` | `v` | Undoing a commit. Pair with `push` as `gitbox vu` to also push the revert. |
 | `draft` | `rcuo` | Starting a new feature from a wip branch. `r` is skipped automatically on feature branches. |
 | `land` | `cxm` | Final commit on a branch with an open PR. CI is verified before merge. |
-| `ship` | `xm` | Merging a clean, already-committed branch; CI must pass |
+| `ship` | `xm` | Merging a clean, already-committed branch. CI must pass |
 | `full` | `cuoxm` | One-shot first pass on a new feature: every step from commit through merge |
 | `release` | `z` | Promoting develop to main with a version tag |
 | `health` | `H` | Auditing script coverage and gap analysis |
 
-### Workflow-prefix compounds
+### Workflow-Prefix Compounds
 
-A workflow name can be used as a prefix: the orchestrator expands the workflow, then appends the remaining characters as raw flags. Names are matched longest-first so no short name shadows a longer one.
+A workflow name can be used as a prefix. The orchestrator expands the workflow, then appends the remaining characters as raw flags. Names are matched longest first so no short name prevents a longer one from being parsed.
 
+#### Examples
 ```powershell
 gitbox mX        # m + X: merge and view CI logs ('m' is a raw flag, not a workflow prefix)
 gitbox shipX     # ship → cxm, append X → cxmX: commit, check CI, merge, view CI logs
@@ -183,7 +207,7 @@ gitbox fullX     # full → cuoxm, append X → cuoxmX: full workflow then view 
 gitbox prX       # pr → o, append X → oX: open PR then view CI logs
 ```
 
-### Skip behavior
+### Skip Behavior
 
 Before executing mutating flags the orchestrator scans the current matrix state and skips any flag whose work is already done:
 
@@ -210,7 +234,7 @@ To skip the prompt entirely and always commit on the wip branch, pass `-AllowWip
 gitbox ship "all done" -AllowWip
 ```
 
-### Examples
+### Additional Examples
 
 ```powershell
 # create a branch
@@ -238,7 +262,7 @@ gitbox W
 gitbox X
 ```
 
-## Commands
+## Raw Commands
 
 ### Branch
 
@@ -248,14 +272,14 @@ gitbox X
 | `g-branch-rename` | `Rename-GitBranch` | branch name via pipeline | Rename current branch locally and on remote |
 | `g-branch-sync` | `Sync-GitBranch` | none | Fetch base and rebase current branch onto it |
 
-### Commit and push
+### Commit and Push
 
 | Alias | Function | Input | What it does |
 |-------|----------|-------|--------------|
 | `g-commit-push` | `Push-GitCommit` | commit message via pipeline | Secret guard, stage all, commit, push |
 | `g-push` | `Push-GitBranch` | none | Push unpushed commits without staging |
 
-### Pull request
+### Pull Request
 
 | Alias | Function | Input | What it does |
 |-------|----------|-------|--------------|
@@ -263,7 +287,7 @@ gitbox X
 | `g-pr-checks` | `Get-GitPullRequestChecks` | none | Summarise check results for current branch PR |
 | `g-merge-rotate` | `Invoke-GitMergeRotate` | branch name (optional, via pipeline) | Merge PR, delete branch, create next branch (defaults to `wip/MMDD-HHmm`) |
 
-### Status and diagnostics
+### Status and Diagnostics
 
 | Alias | Function | Input | What it does |
 |-------|----------|-------|--------------|
@@ -272,11 +296,11 @@ gitbox X
 | `g-matrix-resolve` | `Resolve-GitMatrix` | state hash via pipeline | Resolve hash to recommended next action |
 | `g-backlog` | `Get-GitBacklog` | none | List all unhandled workflow states |
 | `g-capabilities` | `Get-GitCapabilities` | none | Score script coverage against known gap requirements |
-| `g-run-logs` | `Get-GitRunLogs` | none | Fetch most recent CI run logs grouped by step; falls back to base branch when current branch has no runs |
+| `g-run-logs` | `Get-GitRunLogs` | none | Fetch most recent CI run logs grouped by step. Falls back to base branch when current branch has no runs |
 
 ## Error recovery
 
-### Rebase conflict (g-branch-sync)
+### Rebase Conflict
 
 `g-branch-sync` aborts automatically on conflict and restores the working tree. Resolve the conflict manually then continue:
 
@@ -288,7 +312,7 @@ git add <resolved-files>
 git rebase --continue
 ```
 
-### Secret guard block (g-commit-push)
+### Secret Guard Block
 
 If `g-commit-push` reports `secret guard: blocked`, the listed files match a sensitive filename pattern. Remove or rename them before retrying:
 
@@ -299,7 +323,7 @@ git status                   # confirm which files are present
 "your commit message" | g-commit-push
 ```
 
-### Merge failure (g-merge-rotate)
+### Merge Failure
 
 If `g-merge-rotate` reports `merge failed`, the PR was not merged and the branch is preserved. Check the failure reason and retry:
 
@@ -311,7 +335,7 @@ gh pr view                   # read any merge blockers (review required, conflic
 "next-branch-name" | g-merge-rotate
 ```
 
-### gh authentication error
+### gh Authentication Error
 
 If any script reports `authentication failed` or `permission denied` on a `gh` call:
 
@@ -320,11 +344,11 @@ gh auth login                # re-authenticate
 gh auth status               # verify scope includes repo
 ```
 
-## Matrix internals
+## Matrix Internals
 
 `g-matrix-scan`, `g-matrix-resolve`, `g-backlog`, and `g-capabilities` operate on a compact state hash that encodes the full repo situation in one string.
 
-### State hash format
+### State Hash Format
 
 ```
 <class>|<dirty>|a<N>|b<N>|<push>|<PR>
@@ -332,7 +356,7 @@ gh auth status               # verify scope includes repo
 
 Example: `F|d3|a2|b0|U|PR-`
 
-| Segment | Values | Meaning |
+| Segment | Values | Definition |
 |---------|--------|---------|
 | `class` | `B` `F` `W` | Branch class: **B**ase, **F**eature, **W**ip |
 | `dirty` | `c` `dN` `sN` | Working tree: **c**lean, **d**irty N files, **s**ecret-pattern match N files |
@@ -348,7 +372,7 @@ S = C × D × A × B × P × R
   = {B,F,W} × {c,dN,sN} × {a0,a1,…} × {b0,b1,…} × {P,U} × {PR-,PRD,PRO,PRX,PRA}
 ```
 
-### Resolve priority (`g-matrix-resolve`)
+### Resolve Priority
 
 `g-matrix-resolve` accepts a hash and returns the recommended next action. Rules fire top-to-bottom; the first match wins:
 
@@ -364,7 +388,9 @@ S = C × D × A × B × P × R
 
 Priority order encodes a dependency graph: you cannot safely open a PR while behind, and you cannot merge while checks are failing. Each rule removes the precondition that blocks the next step.
 
-### Backlog sweep (`g-backlog`)
+### Backlog Sweep
+
+> *The following sections are only relevant to gitbox development. They are not useful for general operation.*
 
 `g-backlog` discovers gaps by running `g-matrix-resolve` against every valid state combination rather than parsing source text. Using two representative values per numeric dimension (0 and 1) the enumeration covers:
 
@@ -384,7 +410,7 @@ covers(W, G) = true  iff  ⋃_{f ∈ flags(W)} caps(f)  ⊇  requirements(G)
 
 `g-matrix-resolve` applies the same check at runtime: before emitting `GAP[dim]` it tests whether the union of all registered `$FlagCapabilities` satisfies `$GapRequirements[dim]`. If coverage exists the label is suppressed. Adding a new script with the right capabilities automatically closes the gap with no edits to `g-matrix-resolve` required.
 
-### Capabilities scan (`g-capabilities`)
+### Capabilities Scan
 
 `g-capabilities` reads every `g-*.ps1` script line by line, matches each non-comment line against the regex patterns in `$CapabilityPatterns`, and records which git/gh operations each script can perform.
 
@@ -405,5 +431,3 @@ density(S) = |caps(S)| / non-blank-non-comment-lines(S)
 Scripts with low density and non-zero capabilities are consolidation candidates.
 
 When a script calls another `g-*.ps1` via `& (Join-Path $PSScriptRoot '...')`, the referenced script's capabilities are inherited recursively. A cycle guard prevents infinite loops. Composite scripts like `g-release.ps1` therefore automatically surface the capabilities of every script they invoke, with no manual bookkeeping.
-
-Known limitation: splatted calls (`gh @args`) are not resolved by static analysis. Scripts that build argument arrays and splat them will show no capabilities in `gitbox W`. Prefer direct invocations (`gh pr create ...`) so the scanner can detect them.

@@ -6,8 +6,8 @@
 # -AllowWip: skip the wip-branch rename prompt and commit on the wip branch as-is
 
 param(
-    [Parameter(Position=0, Mandatory)]
-    [string]$Spec,
+    [Parameter(Position=0)]
+    [string]$Spec = '',
     [Parameter(ValueFromPipeline)]
     [string]$PipelineArg,
     [Parameter(Position=1, ValueFromRemainingArguments)]
@@ -16,6 +16,99 @@ param(
 )
 
 . (Join-Path $PSScriptRoot 'g-error-vectors.ps1')
+. (Join-Path $PSScriptRoot 'g-spinner.ps1')
+
+$_e = [char]27
+$_d  = "${_e}[2m";  $_b  = "${_e}[1m"
+$_cy = "${_e}[36m"; $_gn = "${_e}[32m"
+$_yw = "${_e}[33m"; $_rd = "${_e}[31m"
+$_rs = "${_e}[0m"
+if ([Console]::IsOutputRedirected) { $_d=''; $_b=''; $_cy=''; $_gn=''; $_yw=''; $_rd=''; $_rs='' }
+
+function Show-GitboxHelp {
+    Write-Host ""
+    Write-Host "  ${_b}${_cy}gitbox${_rs}  git workflow automation"
+    Write-Host ""
+    Write-Host "  ${_b}${_yw}USAGE${_rs}"
+    Write-Host "    gitbox ${_cy}<flags|workflow>${_rs} [args] [-AllowWip]"
+    Write-Host "    gb     ${_cy}<flags|workflow>${_rs} [args] [-AllowWip]"
+    Write-Host ""
+    Write-Host "  ${_b}${_yw}FLAGS${_rs}  ${_d}mutating, run in pipeline order${_rs}"
+    @(
+        'b|branch-create|<name>|Create a feature branch from base'
+        'r|branch-rename|<name>|Rename current branch'
+        's|branch-sync||Fetch and rebase onto base'
+        'c|commit-push|[message]|Stage all, commit, and push'
+        'v|revert|[ref]|Revert a commit (default: HEAD)'
+        'u|push||Push unpushed commits'
+        'o|open-pr|[title]|Open a PR against the base branch'
+        'x|pr-checks||Check CI status'
+        'm|merge-rotate|[name]|Merge PR, delete branch, create next'
+        'z|release|[version]|Promote develop to main with a tag'
+    ) | ForEach-Object {
+        $p = $_ -split '\|', 4
+        Write-Host ("    ${_cy}{0}${_rs}  {1,-14}  {2,-10}  {3}" -f $p[0], $p[1], $p[2], $p[3])
+    }
+    Write-Host ""
+    Write-Host "  ${_d}       diagnostic${_rs}"
+    @(
+        'H|health|Unified health report'
+        'Q|status|One-line repo status'
+        'L|log|Commits ahead of base'
+        'D|diff|Changed files and line counts'
+        'P|pr-view|PR detail: title, state, reviews, checks'
+        'S|matrix-scan|State hash and recommended next action'
+        'B|backlog|360-combination gap sweep'
+        'C|capabilities|Script coverage scores'
+        'W|workflow-registry|Named workflows with capabilities'
+        'O|optimization|Capability density per script'
+        'X|run-logs|Most recent CI run logs'
+    ) | ForEach-Object {
+        $p = $_ -split '\|', 3
+        Write-Host ("    ${_cy}{0}${_rs}  {1,-20}  {2}" -f $p[0], $p[1], $p[2])
+    }
+    Write-Host ""
+    Write-Host "  ${_b}${_yw}WORKFLOWS${_rs}"
+    @(
+        'start|b|Beginning a new ticket from the base branch'
+        'rename|r|Promoting a wip branch before opening a PR'
+        'sync|s|Branch is behind base'
+        'commit|c|Saving incremental progress on an open PR'
+        'push|u|Pushing commits made outside gitbox'
+        'pr|o|Opening a PR on an already-pushed branch'
+        'checks|x|Inspecting CI status'
+        'merge|m|Merging an approved PR'
+        'revert|v|Undoing a commit'
+        'draft|rcuo|Starting a new feature from a wip branch'
+        'land|cxm|Final commit on a branch with an open PR'
+        'ship|xm|Merging a clean, already-committed branch'
+        'full|cuoxm|One-shot from commit through merge'
+        'release|z|Promoting develop to main with a version tag'
+    ) | ForEach-Object {
+        $p = $_ -split '\|', 3
+        Write-Host ("    ${_cy}{0,-8}${_rs}  ${_b}{1,-6}${_rs}  {2}" -f $p[0], $p[1], $p[2])
+    }
+    Write-Host ""
+    Write-Host "  ${_b}${_yw}EXAMPLES${_rs}"
+    @(
+        'gitbox b "feat/my-feature"|create a feature branch'
+        'gitbox c "fix the thing"|commit all changes'
+        'gitbox co "fix the thing" "Fix the thing"|commit and open PR'
+        'gitbox land "fix the thing"|commit, check CI, merge'
+        'gitbox ship|check CI and merge'
+    ) | ForEach-Object {
+        $p = $_ -split '\|', 2
+        Write-Host ("    ${_gn}{0,-46}${_rs}  ${_d}{1}${_rs}" -f $p[0], $p[1])
+    }
+    Write-Host ""
+}
+
+if (-not $Spec -or $Spec -in @('--help', '-h', '-?', 'help')) { Show-GitboxHelp; exit 0 }
+if ($Spec -in @('--version', 'version')) {
+    $manifest = Import-PowerShellDataFile (Join-Path $PSScriptRoot 'gitbox.psd1')
+    Write-Host "gitbox $($manifest.ModuleVersion)"
+    exit 0
+}
 
 # Case-sensitive: lowercase=mutating, uppercase=diagnostic; 's' and 'S' are distinct keys
 $FlagMap = [System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)
@@ -112,12 +205,13 @@ $skipReasons = @{
 }
 if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
     $needsPR = @($mutating | Where-Object { $_.Flag -in @('o','x') }).Count -gt 0
-    if ($needsPR) { Write-Host "scanning state ..." }
+    $spin = Start-Spinner "scanning state"
     $scanOut = if ($needsPR) {
         & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') 2>$null 6>&1
     } else {
         & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') -GitOnly 2>$null 6>&1
     }
+    Stop-Spinner $spin
     $hashRaw = ($scanOut | Where-Object { "$_" -match '^[BFW]\|' }) | Select-Object -First 1
     if ($hashRaw -and "$hashRaw" -match '^([BFW])\|([^|]+)\|a\d+\|b\d+\|([PU])\|(PR[-DXOA]+)$') {
         $hClass = $Matches[1]; $hDirty = $Matches[2]; $hPush = $Matches[3]; $hPR = $Matches[4]
@@ -157,7 +251,7 @@ while ($i -lt $mutating.Count) {
     $name   = $step.Info.Script -replace '\.ps1$','' -replace '^g-',''
 
     if ($skipFlags.ContainsKey($flag) -and $skipFlags[$flag]) {
-        Write-Host "skip $flag ($name): $($skipReasons[$flag])"
+        Write-Host "${_d}  skip $flag ($name): $($skipReasons[$flag])${_rs}"
         $ran.Add($flag)
         $i++
         continue
@@ -188,12 +282,14 @@ while ($i -lt $mutating.Count) {
         $stepOut     = $stepLines -join "`n"
         $errorVector = if ($stepOut) { Resolve-OutputToVector -Output $stepOut } else { $null }
 
+        $rSpin    = Start-Spinner "scanning state"
         $scanOut  = & (Join-Path $PSScriptRoot 'g-matrix-scan.ps1') 2>$null 6>&1
+        Stop-Spinner $rSpin
         $hashLine = ($scanOut | Where-Object { "$_" -match '^[BFW]\|' }) | Select-Object -First 1
         if ($hashLine) {
             $r = Resolve-MatrixAction -Hash "$hashLine" -ErrorVector $errorVector
             if ($r -and $r.Action) {
-                Write-Host "  matrix suggests: next: $($r.Action)"
+                Write-Host "${_yw}  matrix suggests: next: $($r.Action)${_rs}"
                 if ($r.Action -match 'gitbox\s+([a-z]+)') {
                     $suggestion   = $Matches[1]
                     $recovFlagStr = if ($WorkflowRegistry.Contains($suggestion)) { $WorkflowRegistry[$suggestion] } else { $suggestion }
@@ -219,7 +315,7 @@ while ($i -lt $mutating.Count) {
 
                         if (-not $confirmed) {
                             $remaining = (@($mutating | Where-Object { $_.Flag -notin $ran.ToArray() }) | ForEach-Object { $_.Flag }) -join ''
-                            Write-Host "  recovery skipped -- remaining: $remaining"
+                            Write-Host "${_yw}  recovery skipped -- remaining: $remaining${_rs}"
                         } else {
                             if ($rInfo.NeedsArg -eq $true) {
                                 $rArg = $null
@@ -227,22 +323,22 @@ while ($i -lt $mutating.Count) {
                                     $rArg = Read-Host "  arg for $recoveryFlag ($rName)"
                                 }
                                 if ($rArg) {
-                                    Write-Host "  running $recoveryFlag ($rName) [interactive] ..."
+                                    Write-Host "${_cy}  running $recoveryFlag ($rName) [interactive]${_rs} ..."
                                     $rArg | & $rScript
                                 } else {
                                     $mode = if ($interactive) { 'interactive' } else { 'non-interactive' }
-                                    Write-Host "  running $recoveryFlag ($rName) [$mode, --fill] ..."
+                                    Write-Host "${_cy}  running $recoveryFlag ($rName) [$mode, --fill]${_rs} ..."
                                     & $rScript
                                 }
                             } else {
                                 $modeTag = if ($interactive) { '' } else { ' [non-interactive]' }
-                                Write-Host "  running $recoveryFlag ($rName)$modeTag ..."
+                                Write-Host "${_cy}  running $recoveryFlag ($rName)${_rs}${modeTag} ..."
                                 & $rScript
                             }
                             if ($LASTEXITCODE -eq 0) {
                                 $recovered = $true
                                 $ran.Add($recoveryFlag)
-                                Write-Host "  recovered -- retrying $flag ($name)"
+                                Write-Host "${_gn}  recovered -- retrying $flag ($name)${_rs}"
                             }
                         }
                     }
@@ -253,8 +349,8 @@ while ($i -lt $mutating.Count) {
         if (-not $recovered) {
             $notRun    = @($mutating | Where-Object { $_.Flag -notin $ran.ToArray() -and $_.Flag -ne $flag }) | ForEach-Object { $_.Flag }
             $notRunStr = if ($notRun) { " |not run: $($notRun -join '')" } else { '' }
-            Write-Host "gitbox $($Spec): step $flag ($name) failed"
-            Write-Host "halted at $flag$notRunStr"
+            Write-Host "${_rd}gitbox $($Spec): step $flag ($name) failed${_rs}"
+            Write-Host "${_rd}halted at $flag$notRunStr${_rs}"
             exit $stepExit
         }
         # $i intentionally not advanced — retry the failed step on next iteration
