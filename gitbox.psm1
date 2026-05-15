@@ -133,14 +133,19 @@ $_wfDescs = [ordered]@{
     release = 'Promoting develop to main with a version tag'
     health  = 'Auditing script coverage'
 }
-$_flagDescs = [ordered]@{
-    b = 'branch-create'; r = 'branch-rename'; s = 'branch-sync'; c = 'commit-push'
-    v = 'revert';        u = 'push';          o = 'open-pr';     x = 'pr-checks'
-    m = 'merge-rotate';  z = 'release'
-    H = 'health'; Q = 'status'; L = 'log';  D = 'diff';    P = 'pr-view'
-    S = 'matrix-scan'; B = 'backlog'; C = 'capabilities'; W = 'workflow-registry'
-    O = 'optimization'; X = 'run-logs'
-}
+# Ordinal (case-sensitive) ordered dict avoids [ordered]@{} treating s/S, b/B etc. as duplicate keys
+$_flagDescs = [System.Collections.Specialized.OrderedDictionary]::new([System.StringComparer]::Ordinal)
+$_flagDescs.Add('b','branch-create'); $_flagDescs.Add('r','branch-rename')
+$_flagDescs.Add('s','branch-sync');   $_flagDescs.Add('c','commit-push')
+$_flagDescs.Add('v','revert');        $_flagDescs.Add('u','push')
+$_flagDescs.Add('o','open-pr');       $_flagDescs.Add('x','pr-checks')
+$_flagDescs.Add('m','merge-rotate');  $_flagDescs.Add('z','release')
+$_flagDescs.Add('H','health');        $_flagDescs.Add('Q','status')
+$_flagDescs.Add('L','log');           $_flagDescs.Add('D','diff')
+$_flagDescs.Add('P','pr-view');       $_flagDescs.Add('S','matrix-scan')
+$_flagDescs.Add('B','backlog');       $_flagDescs.Add('C','capabilities')
+$_flagDescs.Add('W','workflow-registry'); $_flagDescs.Add('O','optimization')
+$_flagDescs.Add('X','run-logs')
 $_gbCompleter = {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
     if (-not $_gbRoot) { return }
@@ -156,8 +161,8 @@ $_gbCompleter = {
     $out  = [System.Collections.Generic.List[System.Management.Automation.CompletionResult]]::new()
 
     if ($recommended -and $recommended -like "$wordToComplete*") {
-        $rdesc = if ($_wfDescs.ContainsKey($recommended))   { $_wfDescs[$recommended] }
-                 elseif ($_flagDescs.ContainsKey($recommended)) { $_flagDescs[$recommended] }
+        $rdesc = if ($_wfDescs.ContainsKey($recommended))  { $_wfDescs[$recommended] }
+                 elseif ($_flagDescs.Contains($recommended)) { $_flagDescs[$recommended] }
                  else { $recommended }
         $out.Add([System.Management.Automation.CompletionResult]::new(
             $recommended, $recommended, 'ParameterValue', "matrix: next ($rdesc)"))
