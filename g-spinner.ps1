@@ -7,7 +7,11 @@ function Start-Spinner {
     $ps.Runspace = $rs
     [void]$ps.AddScript({
         param($lbl)
-        $frames = [char[]]@(0x280B,0x2819,0x2839,0x2838,0x283C,0x2834,0x2826,0x2827,0x2807,0x280F)
+        $frames = if ($env:WT_SESSION) {
+            [char[]]@(0x280B,0x2819,0x2839,0x2838,0x283C,0x2834,0x2826,0x2827,0x2807,0x280F)
+        } else {
+            [char[]]@('|', '/', '-', '\')
+        }
         $e = [char]27
         $i = 0
         while ($true) {
