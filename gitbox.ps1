@@ -317,6 +317,7 @@ while ($i -lt $mutating.Count) {
                             $remaining = (@($mutating | Where-Object { $_.Flag -notin $ran.ToArray() }) | ForEach-Object { $_.Flag }) -join ''
                             Write-Host "${_yw}  recovery skipped -- remaining: $remaining${_rs}"
                         } else {
+                            $rSkipped = $false
                             if ($rInfo.NeedsArg -eq $true) {
                                 $rArg = $null
                                 if ($interactive) {
@@ -326,16 +327,17 @@ while ($i -lt $mutating.Count) {
                                     Write-Host "${_cy}  running $recoveryFlag ($rName) [interactive]${_rs} ..."
                                     $rArg | & $rScript
                                 } else {
-                                    $mode = if ($interactive) { 'interactive' } else { 'non-interactive' }
-                                    Write-Host "${_cy}  running $recoveryFlag ($rName) [$mode, --fill]${_rs} ..."
-                                    & $rScript
+                                    # Running without a required arg throws ParameterBindingException which does
+                                    # not set $LASTEXITCODE, producing a false-positive recovery and a retry loop.
+                                    Write-Host "${_yw}  recovery skipped -- $recoveryFlag ($rName) requires an arg${_rs}"
+                                    $rSkipped = $true
                                 }
                             } else {
                                 $modeTag = if ($interactive) { '' } else { ' [non-interactive]' }
                                 Write-Host "${_cy}  running $recoveryFlag ($rName)${_rs}${modeTag} ..."
                                 & $rScript
                             }
-                            if ($LASTEXITCODE -eq 0) {
+                            if (-not $rSkipped -and $LASTEXITCODE -eq 0) {
                                 $recovered = $true
                                 $ran.Add($recoveryFlag)
                                 Write-Host "${_gn}  recovered -- retrying $flag ($name)${_rs}"
