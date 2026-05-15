@@ -95,8 +95,8 @@ Set-Alias -Name 'g-pr-checks'      -Value 'Get-GitPullRequestChecks'
 
 function Invoke-Gitbox {
     param(
-        [Parameter(Position=0, Mandatory)]
-        [string]$Spec,
+        [Parameter(Position=0)]
+        [string]$Spec = '',
         [Parameter(ValueFromPipeline)]
         [string]$PipelineArg,
         [Parameter(Position=1, ValueFromRemainingArguments)]
@@ -113,3 +113,4 @@ function Invoke-Gitbox {
 }
 
 Set-Alias -Name 'gitbox' -Value 'Invoke-Gitbox'
+Set-Alias -Name 'gb'     -Value 'Invoke-Gitbox'
