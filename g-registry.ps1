@@ -104,19 +104,25 @@ $WorkflowRegistry = [ordered]@{
 function Get-GitboxConfig {
     param([string]$RepoPath = (Get-Location))
     $cfgPath = Join-Path $RepoPath '.gitbox.json'
-    $base = $null; $default = $null; $mergeStrategy = $null; $editor = $false
+    $base = $null; $default = $null; $mergeStrategy = $null; $editor = $null
     if (Test-Path $cfgPath) {
         $cfg     = Get-Content $cfgPath -Raw | ConvertFrom-Json
         $base    = $cfg.BaseBranch
         $default = $cfg.DefaultBranch
-        if ($cfg.MergeStrategy) { $mergeStrategy = $cfg.MergeStrategy.ToLower() }
-        if ($cfg.Editor)         { $editor        = [bool]$cfg.Editor }
-    }
-    if (-not $default) {
-        $default = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
+        if ($cfg.MergeStrategy)     { $mergeStrategy = $cfg.MergeStrategy.ToLower() }
+        if ($null -ne $cfg.Editor)  { $editor        = [bool]$cfg.Editor }
+    } else {
+        $default       = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
         if (-not $default) { $default = 'main' }
+        $base          = $default
+        $mergeStrategy = 'merge'
+        $editor        = $false
     }
-    if (-not $base) { $base = $default }
+    # Partial-config fallbacks: fill any keys the config file omitted
+    if (-not $default)             { $default       = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null; if (-not $default) { $default = 'main' } }
+    if (-not $base)                { $base          = $default }
+    if ($null -eq $mergeStrategy)  { $mergeStrategy = 'merge' }
+    if ($null -eq $editor)         { $editor        = $false }
     return @{ BaseBranch = $base; DefaultBranch = $default; MergeStrategy = $mergeStrategy; Editor = $editor }
 }
 
