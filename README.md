@@ -114,7 +114,7 @@ When no config file exists all fields fall back to defaults. Omit the file entir
 Import-Module .\gitbox.psd1
 ```
 
-Each script has a `g-` alias and a verb-noun function name. Either form works after import.
+Each script has a `g-` alias and a verb-noun function name. Either form works after import. The module also exports `gitbox` and `gb` as aliases for the orchestrator, and registers tab completion for both.
 
 ## Orchestrator
 
@@ -122,6 +122,25 @@ Each script has a `g-` alias and a verb-noun function name. Either form works af
 
 ```powershell
 gitbox <flags|workflow> [arg ...] [-AllowWip]
+gb     <flags|workflow> [arg ...] [-AllowWip]
+```
+
+`gb` is an alias for `gitbox`. Both commands are equivalent in all contexts.
+
+### Built-in Commands
+
+| Command | Output |
+|---------|--------|
+| `gitbox` or `gitbox --help` | Full flag and workflow reference |
+| `gitbox --version` | Version string read from the module manifest |
+
+### Tab Completion
+
+When loaded as a module, gitbox registers an argument completer for both `gitbox` and `gb`. Pressing Tab after either command offers all flags and named workflows. The completer runs a fast git-only state scan and surfaces the matrix-recommended next action as the first suggestion.
+
+```powershell
+gitbox <Tab>     # → ship (or whatever the matrix says is next), then all workflows and flags
+gb lan<Tab>      # → land
 ```
 
 ### Operational Flags

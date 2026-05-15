@@ -104,6 +104,11 @@ function Show-GitboxHelp {
 }
 
 if (-not $Spec -or $Spec -in @('--help', '-h', '-?', 'help')) { Show-GitboxHelp; exit 0 }
+if ($Spec -in @('--version', 'version')) {
+    $manifest = Import-PowerShellDataFile (Join-Path $PSScriptRoot 'gitbox.psd1')
+    Write-Host "gitbox $($manifest.ModuleVersion)"
+    exit 0
+}
 
 # Case-sensitive: lowercase=mutating, uppercase=diagnostic; 's' and 'S' are distinct keys
 $FlagMap = [System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)
