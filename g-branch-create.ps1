@@ -2,7 +2,8 @@ param(
     [Parameter(ValueFromPipeline, Mandatory)]
     [string]$Name,
 
-    [switch]$Force
+    [switch]$Force,
+    [switch]$Stack
 )
 
 begin {
@@ -26,7 +27,8 @@ process {
     if ($existsLocal -or $existsRemote) {
         Write-Host "branch '$Name' already exists"
         if (-not $Force) {
-            $confirm = Read-Host "check it out? [y/N]"
+            $confirm = $null
+            try { $confirm = Read-Host "check it out? [y/N]" } catch { }
             if ($confirm -notmatch '^[yY]$') { exit 1 }
         }
         git -C $repo checkout $Name 2>&1 | Out-Null
@@ -34,23 +36,29 @@ process {
         exit 0
     }
 
-    if ($branch -ne $baseBranch) {
-        if ($branch -match '^wip/') {
-            # wip/ is a known transitional state after merge-rotate; auto-checkout base
-            $coOut = git -C $repo checkout $baseBranch 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "checkout $baseBranch failed: $($coOut -join ' ')"; exit 1
+    $parentBranch = $baseBranch
+    if ($Stack) {
+        $parentBranch = $branch
+    } else {
+        if ($branch -ne $baseBranch) {
+            if ($branch -match '^wip/') {
+                # wip/ is a known transitional state after merge-rotate; auto-checkout base
+                $coOut = git -C $repo checkout $baseBranch 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Host "checkout $baseBranch failed: $($coOut -join ' ')"; exit 1
+                }
+            } else {
+                Write-Host "must be on base branch ($baseBranch); currently on '$branch'"; exit 1
             }
-        } else {
-            Write-Host "must be on base branch ($baseBranch); currently on '$branch'"; exit 1
         }
-    }
 
-    $pullOut = git -C $repo pull origin $baseBranch 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "pull failed"
-        $pullOut | ForEach-Object { Write-Host "  $_" }
-        exit 1
+        Write-Host "pulling $baseBranch ..."
+        $pullOut = git -C $repo pull origin $baseBranch 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "pull failed"
+            $pullOut | ForEach-Object { Write-Host "  $_" }
+            exit 1
+        }
     }
 
     $checkoutOut = git -C $repo checkout -b $Name 2>&1
@@ -58,6 +66,6 @@ process {
         Write-Host "branch create failed: $($checkoutOut -join ' ')"; exit 1
     }
 
-    Write-Host "created $Name from $baseBranch"
+    Write-Host "created $Name from $parentBranch"
     exit 0
 }

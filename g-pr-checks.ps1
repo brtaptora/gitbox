@@ -8,6 +8,7 @@ if (-not $state.PR) {
     Write-Host "no open PR for branch '$($state.Branch)'"; exit 1
 }
 
+Write-Host "checking PR #$($state.PR.number) ..."
 $checksJson = gh pr checks $state.PR.number --repo $state.RepoName --json name,state,conclusion 2>$null | ConvertFrom-Json
 if (-not $checksJson -or $checksJson.Count -eq 0) {
     Write-Host "PR #$($state.PR.number): no checks configured"; exit 0

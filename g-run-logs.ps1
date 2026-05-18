@@ -35,6 +35,7 @@ if ($run.status -notin @('completed')) {
     Write-Host "run did not complete within $($pollMax * $pollSec)s"; exit 1
 }
 
+Write-Host "fetching logs ..."
 $logLines = gh run view $run.databaseId --repo $state.RepoName --log 2>$null
 if (-not $logLines) { Write-Host "no log available"; exit 0 }
 
