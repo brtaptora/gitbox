@@ -7,15 +7,18 @@ function Start-Spinner {
     $ps.Runspace = $rs
     [void]$ps.AddScript({
         param($lbl)
-        $frames = if ($env:WT_SESSION) {
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        $useUnicode = $env:WT_SESSION -and [Console]::OutputEncoding.CodePage -eq 65001
+        $frames = if ($useUnicode) {
             [char[]]@(0x280B,0x2819,0x2839,0x2838,0x283C,0x2834,0x2826,0x2827,0x2807,0x280F)
         } else {
             [char[]]@('|', '/', '-', '\')
         }
+        $count = $frames.Length
         $e = [char]27
         $i = 0
         while ($true) {
-            [Console]::Write("${e}[36m`r$($frames[$i % 10])${e}[0m $lbl")
+            [Console]::Write("${e}[36m`r$($frames[$i % $count])${e}[0m $lbl")
             [System.Threading.Thread]::Sleep(80)
             $i++
         }
