@@ -21,7 +21,8 @@ $baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
 if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 
-if ($branch -eq $baseBranch) {
+$defaultBranch = (Get-GitboxConfig -RepoPath $repo).DefaultBranch
+if ($branch -eq $baseBranch -and $baseBranch -eq $defaultBranch) {
     Write-Host "on base branch '$baseBranch' -- nothing to merge here; run: gitbox b `"<name>`" to start a feature"
     exit 1
 }
