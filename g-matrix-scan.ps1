@@ -22,7 +22,7 @@ $push = if (-not $state.RemoteBranch -or $state.Unpushed -gt 0) { "U" } else { "
 $prState = if (-not $state.PR)                                { "PR-" }
            elseif ($state.PR.state -eq "DRAFT")               { "PRD" }
            elseif ($state.PR.reviewDecision -eq "APPROVED")   { "PRA" }
-           elseif ($state.PR.statusCheckRollup -eq "FAILURE") { "PRX" }
+           elseif ((Get-PRRollup $state.PR.statusCheckRollup) -eq 'FAILURE') { "PRX" }
            elseif ($state.PR.state -eq "OPEN")                { "PRO" }
            else                                                { "PR-" }
 

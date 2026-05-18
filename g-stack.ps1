@@ -52,7 +52,7 @@ function Write-StackTree {
     $pr = $headToPR[$Head]
     $marker = if ($Head -eq $CurrentBranch) { ' ← YOU ARE HERE' } else { '' }
     if ($pr) {
-        $ci = switch ($pr.statusCheckRollup) {
+        $ci = switch (Get-PRRollup $pr.statusCheckRollup) {
             'SUCCESS' { '[pass]' }
             'FAILURE' { '[fail]' }
             'PENDING' { '[pend]' }

@@ -53,6 +53,23 @@ process {
         }
     }
 
+    # Auto-detect stack parent: find the open PR branch that is the closest git ancestor of HEAD
+    if (-not $Base) {
+        $allOpenPRs = gh pr list --repo $repoName --state open --json headRefName 2>$null | ConvertFrom-Json
+        if ($allOpenPRs) {
+            $bestParent = $null; $bestCount = [int]::MaxValue
+            foreach ($c in $allOpenPRs) {
+                if ($c.headRefName -eq $branch) { continue }
+                git -C $repo merge-base --is-ancestor "origin/$($c.headRefName)" HEAD 2>$null
+                if ($LASTEXITCODE -eq 0) {
+                    $cnt = (git -C $repo rev-list "origin/$($c.headRefName)..HEAD" 2>$null | Measure-Object -Line).Lines
+                    if ($cnt -lt $bestCount) { $bestCount = $cnt; $bestParent = $c.headRefName }
+                }
+            }
+            if ($bestParent) { $Base = $bestParent }
+        }
+    }
+
     $target    = if ($Base) { $Base } else { $baseBranch }
     $draftFlag = if ($Draft) { '--draft' } else { $null }
     Write-Host "opening PR ..."
