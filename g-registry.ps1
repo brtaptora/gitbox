@@ -71,6 +71,7 @@ $FlagScripts = @{
     m = 'g-merge-rotate.ps1'
     g = 'g-branch-base.ps1'
     k = 'g-branch-checkout.ps1'
+    n = 'g-unstack.ps1'
     z = 'g-release.ps1'
 }
 $FlagCapabilities = @{}
@@ -97,13 +98,14 @@ $WorkflowRegistry = [ordered]@{
     revert  = 'v'
     base     = 'g'
     checkout = 'k'
+    unstack  = 'n'
+    stack    = 'T'
     promote  = 'rcuo'
     land     = 'cxm'
     ship     = 'xm'
     full     = 'cuoxm'
     release  = 'z'
     health   = 'H'
-    stack    = 'T'
 }
 
 function Get-GitboxConfig {

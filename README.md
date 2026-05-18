@@ -133,6 +133,7 @@ gb     <flags|workflow> [arg ...] [-AllowWip]
 |---------|--------|
 | `gitbox` or `gitbox --help` | Full flag and workflow reference |
 | `gitbox --version` | Version string read from the module manifest |
+| `gitbox init` | Scaffold `.gitbox.json` interactively; prompts for base branch, merge strategy, editor setting, and post-merge destination |
 
 ### Tab Completion
 
@@ -158,6 +159,7 @@ gb lan<Tab>      # → land
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
 | `g` | Checkout base branch and pull | — |
 | `k` | Checkout any named branch with stash-and-pop; no-op if already on that branch | branch name |
+| `n` | Merge the full stacked PR chain bottom-to-top, checking CI between each merge | — |
 | `z` | Tag and push; on two-branch repos (base ≠ default), opens a PR to default branch, checks CI, and merges first. On single-trunk repos (base = default), tags HEAD directly. Omitting version auto-increments the patch (e.g. `v1.0.0` → `v1.0.1`). Pass `patch`, `minor`, or `major` to bump that segment. Pass an explicit string to pin the version. No existing tags starts at `v0.1.0`. | version, bump keyword, or omit |
 ### Diagnostic Flags
 
@@ -194,6 +196,7 @@ Arguments are positional and consumed left to right by flags that need one.
 | `promote` | `rcuo` | Promote a wip branch to a feature branch with a PR. `r` is skipped automatically on feature branches. |
 | `base` | `g` | Return to base branch after merge or before release |
 | `checkout` | `k` | Switch to any named branch with stash-and-pop |
+| `unstack` | `n` | Merge the full stacked PR chain bottom-to-top |
 | `stack` | `T` | Print the stacked PR chain for the current branch |
 | `land` | `cxm` | Final commit on a branch with an open PR. CI is verified before merge. |
 | `ship` | `xm` | Merging a clean, already-committed branch. CI must pass |
