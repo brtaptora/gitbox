@@ -1,5 +1,5 @@
 @{
-    ModuleVersion     = '2.0.0'
+    ModuleVersion     = '2.0.1'
     GUID              = '0d39b38f-fe51-4c5e-8623-909379972344'
     Author            = 'brtaptora'
     Description       = 'Git workflow automation suite: branch, commit, PR, merge, and gap analysis.'
