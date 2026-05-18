@@ -107,6 +107,8 @@ $WorkflowRegistry = [ordered]@{
     full     = 'cuoxm'
     release  = 'z'
     health   = 'H'
+    status   = 'S'
+    log      = 'L'
 }
 
 function Get-GitboxConfig {
