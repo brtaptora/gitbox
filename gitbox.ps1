@@ -1,6 +1,6 @@
 # Flag-stack orchestrator. Routes flag sequences to scripts in canonical order.
 # Usage: gitbox <flags|workflow> [arg ...] [-AllowWip]
-# Flags: b=branch-create r=rename s=sync c=commit v=revert u=push o=open-pr x=pr-checks m=merge-rotate z=release
+# Flags: b=branch-create r=rename s=sync c=commit v=revert u=push o=open-pr x=pr-checks m=merge-rotate g=branch-base z=release
 #        H=health Q=status L=log D=diff P=pr-view
 #        S=matrix-scan B=backlog C=capabilities W=workflow-registry O=optimize X=run-logs
 # -AllowWip: skip the wip-branch rename prompt and commit on the wip branch as-is
@@ -44,7 +44,8 @@ function Show-GitboxHelp {
         'o|open-pr|[title]|Open a PR against the base branch'
         'x|pr-checks||Check CI status'
         'm|merge-rotate|[name]|Merge PR, delete branch, create next'
-        'z|release|[version]|Promote develop to main with a tag'
+        'g|branch-base||Checkout base branch and pull'
+        'z|release|[version]|Tag and push; promotes develop to main first if applicable'
     ) | ForEach-Object {
         $p = $_ -split '\|', 4
         Write-Host ("    ${_cy}{0}${_rs}  {1,-14}  {2,-10}  {3}" -f $p[0], $p[1], $p[2], $p[3])
@@ -79,7 +80,8 @@ function Show-GitboxHelp {
         'checks|x|Inspecting CI status'
         'merge|m|Merging an approved PR'
         'revert|v|Undoing a commit'
-        'draft|rcuo|Starting a new feature from a wip branch'
+        'promote|rcuo|Promote a wip branch to a feature branch with a PR'
+        'base|g|Return to base branch after merge or before release'
         'land|cxm|Final commit on a branch with an open PR'
         'ship|xm|Merging a clean, already-committed branch'
         'full|cuoxm|One-shot from commit through merge'
@@ -121,6 +123,7 @@ $FlagMap['u'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
 $FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = 'optional' }
 $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
 $FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional'; Switches = @('Squash','Rebase') }
+$FlagMap['g'] = @{ Script = 'g-branch-base.ps1';    NeedsArg = $false }
 $FlagMap['z'] = @{ Script = 'g-release.ps1';        NeedsArg = 'optional'; Switches = @('View') }
 $FlagMap['Q'] = @{ Script = 'g-status.ps1';         NeedsArg = $false }
 $FlagMap['S'] = @{ Script = 'g-matrix-scan.ps1';    NeedsArg = $false }
@@ -134,7 +137,7 @@ $FlagMap['D'] = @{ Script = 'g-diff.ps1';           NeedsArg = $false }
 $FlagMap['P'] = @{ Script = 'g-pr-view.ps1';        NeedsArg = $false }
 $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','v','u','o','x','m','z','H','Q','L','D','P','S','B','C','W','O','X')
+$CanonicalOrder = [string[]]@('b','r','s','c','v','u','o','x','m','g','z','H','Q','L','D','P','S','B','C','W','O','X')
 
 # Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) {
@@ -193,7 +196,7 @@ $mutating = @($steps | Where-Object { $_.Flag -cmatch '[a-z]' })
 $ran      = [System.Collections.Generic.List[string]]::new()
 
 # --- Track B: matrix pre-check — skip flags whose work is already done ---
-$skippableFlags = @('b','r','c','u','o','x')
+$skippableFlags = @('b','r','c','u','o','x','g')
 $skipFlags = @{}
 $skipReasons = @{
     'b' = 'already on feature branch'
@@ -202,6 +205,7 @@ $skipReasons = @{
     'u' = 'no unpushed commits'
     'o' = 'PR already open'
     'x' = 'PR open with passing checks'
+    'g' = 'already on base branch'
 }
 if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
     $needsPR = @($mutating | Where-Object { $_.Flag -in @('o','x') }).Count -gt 0
@@ -221,6 +225,7 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
         $skipFlags['u'] = ($hPush  -eq 'P')
         $skipFlags['o'] = ($hPR -in @('PRO','PRA'))
         $skipFlags['x'] = ($hPR -in @('PRO','PRA'))
+        $skipFlags['g'] = ($hClass -eq 'B')
 
         if ($hClass -eq 'W' -and ($steps | Where-Object { $_.Flag -eq 'c' })) {
             $hasRename = [bool]($steps | Where-Object { $_.Flag -in @('r','b') })
