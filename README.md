@@ -145,6 +145,8 @@ gb lan<Tab>      # → land
 ```
 
 ### Operational Flags
+<details>
+<summary>Click to expand</summary>
 
 | Flag | Operation | Argument |
 |------|-------------|-----------|
@@ -152,16 +154,29 @@ gb lan<Tab>      # → land
 | `r` | Rename current branch | branch name |
 | `s` | Fetch and rebase onto base | — |
 | `c` | Stage all, commit, push | commit message (optional, prompts if absent) |
-| `v` | Revert a commit | ref (optional, defaults to HEAD) |
 | `u` | Push unpushed commits | — |
 | `o` | Open PR against base branch | PR title (optional, prompts or uses `--fill` if absent) |
 | `x` | Report CI check results | — |
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
+</details>
+
+### Additional Flags
+<details>
+<summary>Click to expand</summary>
+
+| Flag | Operation | Argument |
+|------|-------------|-----------|
+| `v` | Revert a commit | ref (optional, defaults to HEAD) |
+| `x` | Report CI check results | — |
 | `g` | Checkout base branch and pull | — |
 | `k` | Checkout any named branch with stash-and-pop; no-op if already on that branch | branch name |
 | `n` | Merge the full stacked PR chain bottom-to-top, checking CI between each merge | — |
 | `z` | Tag and push; on two-branch repos (base ≠ default), opens a PR to default branch, checks CI, and merges first. On single-trunk repos (base = default), tags HEAD directly. Omitting version auto-increments the patch (e.g. `v1.0.0` → `v1.0.1`). Pass `patch`, `minor`, or `major` to bump that segment. Pass an explicit string to pin the version. No existing tags starts at `v0.1.0`. | version, bump keyword, or omit |
+</details>
+
 ### Diagnostic Flags
+<details>
+<summary>Click to expand</summary>
 
 | Flag | Operation |
 |------|-------------|
@@ -177,10 +192,25 @@ gb lan<Tab>      # → land
 | `X` | Fetch CI run logs grouped by step |
 | `H` | Unified gitbox health report |
 | `T` | Stack topology tree: show stacked PR chain with CI status |
+</details>
 
 Arguments are positional and consumed left to right by flags that need one.
 
-### Named Workflows
+### Named Compound Workflows
+<details>
+<summary>Click to expand</summary>
+
+| Alias | Flags | Use Case |
+|------|-------|---------|
+| `promote` | `rcuo` | Promote a wip branch to a feature branch with a PR. `r` is skipped automatically on feature branches. |
+| `land` | `cxm` | Final commit on a branch with an open PR. CI is verified before merge. |
+| `ship` | `xm` | Merging a clean, already-committed branch. CI must pass |
+| `full` | `cuoxm` | One-shot first pass on a new feature: every step from commit through merge |
+</details>
+
+### Named Single-Flag Workflows
+<details>
+<summary>Click to expand</summary>
 
 | Alias | Flags | Use Case |
 |------|-------|---------|
@@ -192,17 +222,14 @@ Arguments are positional and consumed left to right by flags that need one.
 | `pr` | `o` | Opening a PR on an already-pushed branch |
 | `checks` | `x` | Inspecting CI status mid-review without merging |
 | `merge` | `m` | Merging an approved PR and rotating to the next branch |
+| `release` | `z` | Promoting develop to main with a version tag |
 | `revert` | `v` | Undoing a commit. Pair with `push` as `gitbox vu` to also push the revert. |
-| `promote` | `rcuo` | Promote a wip branch to a feature branch with a PR. `r` is skipped automatically on feature branches. |
 | `base` | `g` | Return to base branch after merge or before release |
 | `checkout` | `k` | Switch to any named branch with stash-and-pop |
 | `unstack` | `n` | Merge the full stacked PR chain bottom-to-top |
 | `stack` | `T` | Print the stacked PR chain for the current branch |
-| `land` | `cxm` | Final commit on a branch with an open PR. CI is verified before merge. |
-| `ship` | `xm` | Merging a clean, already-committed branch. CI must pass |
-| `full` | `cuoxm` | One-shot first pass on a new feature: every step from commit through merge |
-| `release` | `z` | Promoting develop to main with a version tag |
 | `health` | `H` | Auditing script coverage and gap analysis |
+</details>
 
 ### Workflow-Prefix Compounds
 
@@ -300,29 +327,40 @@ gitbox X
 ## Raw Commands
 
 ### Branch
+<details>
+<summary>Click to expand</summary>
 
 | Alias | Function | Input | What it does |
 |-------|----------|-------|--------------|
 | `g-branch-create` | `New-GitBranch` | branch name via pipeline | Pull base, create and checkout feature branch |
 | `g-branch-rename` | `Rename-GitBranch` | branch name via pipeline | Rename current branch locally and on remote |
 | `g-branch-sync` | `Sync-GitBranch` | none | Fetch base and rebase current branch onto it |
+</details>
 
 ### Commit and Push
+<details>
+<summary>Click to expand</summary>
 
 | Alias | Function | Input | What it does |
 |-------|----------|-------|--------------|
 | `g-commit-push` | `Push-GitCommit` | commit message via pipeline | Secret guard, stage all, commit, push |
 | `g-push` | `Push-GitBranch` | none | Push unpushed commits without staging |
+</details>
 
 ### Pull Request
+<details>
+<summary>Click to expand</summary>
 
 | Alias | Function | Input | What it does |
 |-------|----------|-------|--------------|
 | `g-open-pr` | `New-GitPullRequest` | PR title via pipeline (`-Body` optional) | Open PR against base branch; exits 0 with existing PR URL if one is already open |
 | `g-pr-checks` | `Get-GitPullRequestChecks` | none | Summarise check results for current branch PR |
 | `g-merge-rotate` | `Invoke-GitMergeRotate` | branch name (optional, via pipeline) | Merge PR, delete branch, create next branch (defaults to `wip/MMDD-HHmm`) |
+</details>
 
 ### Status and Diagnostics
+<details>
+<summary>Click to expand</summary>
 
 | Alias | Function | Input | What it does |
 |-------|----------|-------|--------------|
@@ -332,8 +370,9 @@ gitbox X
 | `g-backlog` | `Get-GitBacklog` | none | List all unhandled workflow states |
 | `g-capabilities` | `Get-GitCapabilities` | none | Score script coverage against known gap requirements |
 | `g-run-logs` | `Get-GitRunLogs` | none | Fetch most recent CI run logs grouped by step. Falls back to base branch when current branch has no runs |
+</details>
 
-## Error recovery
+## Error Recovery
 
 ### Rebase Conflict
 
