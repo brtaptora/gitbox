@@ -23,5 +23,16 @@ process {
         }
     }
     if ($r.Action) { Write-Host "  next: $($r.Action)" }
+
+    # Context-sensitive hints for discoverability
+    if ($r.Action -eq 'gitbox ship') {
+        Write-Host "  hint: dirty tree? use: gitbox land ""<message>"""
+    } elseif ($r.Action -like 'gitbox land*') {
+        Write-Host "  hint: nothing to commit? use: gitbox ship"
+    } elseif ($r.Class -eq 'F' -and $r.Ahead -gt 0 -and $r.Pr -eq 'PR-') {
+        Write-Host "  hint: gitbox L to review commits, gitbox D for diff"
+    } elseif ($r.Class -eq 'B') {
+        Write-Host "  hint: gitbox L for recent log, gitbox H for health report"
+    }
     exit 0
 }
