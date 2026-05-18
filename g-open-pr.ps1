@@ -72,6 +72,14 @@ process {
 
     $target    = if ($Base) { $Base } else { $baseBranch }
     $draftFlag = if ($Draft) { '--draft' } else { $null }
+
+    if ($Draft) {
+        $stackedPRs = gh pr list --repo $repoName --base $branch --state open --json number 2>$null | ConvertFrom-Json
+        if ($stackedPRs -and $stackedPRs.Count -gt 0) {
+            Write-Host "  warning: $($stackedPRs.Count) PR(s) target '$branch' -- opening as draft blocks 'gitbox n' from merging them"
+        }
+    }
+
     Write-Host "opening PR ..."
     $url = if ($Title) {
         gh pr create --repo $repoName --title $Title --base $target --body $Body @(if ($draftFlag) { $draftFlag }) 2>&1

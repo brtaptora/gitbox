@@ -66,6 +66,13 @@ process {
         Write-Host "branch create failed: $($checkoutOut -join ' ')"; exit 1
     }
 
+    if ($Stack) {
+        $cfg = Get-GitboxConfig -RepoPath $repo
+        if ($cfg.MergeStrategy -eq 'squash') {
+            Write-Host "  warning: MergeStrategy=squash causes rebase conflicts during 'gitbox n' -- set MergeStrategy to 'merge' for stacked PRs"
+        }
+    }
+
     Write-Host "created $Name from $parentBranch"
     exit 0
 }
