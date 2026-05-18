@@ -46,6 +46,7 @@ function Show-GitboxHelp {
         'm|merge-rotate|[name]|Merge PR, delete branch, create next'
         'g|branch-base||Checkout base branch and pull'
         'k|branch-checkout|<name>|Checkout any named branch with stash-and-pop'
+        'n|unstack||Merge the full stacked PR chain bottom-to-top'
         'z|release|[version]|Tag and push; promotes develop to main first if applicable'
     ) | ForEach-Object {
         $p = $_ -split '\|', 4
@@ -85,6 +86,7 @@ function Show-GitboxHelp {
         'promote|rcuo|Promote a wip branch to a feature branch with a PR'
         'base|g|Return to base branch after merge or before release'
         'checkout|k|Switch to any named branch with stash-and-pop'
+        'unstack|n|Merge the full stacked PR chain bottom-to-top'
         'stack|T|Show current stack topology'
         'land|cxm|Final commit on a branch with an open PR'
         'ship|xm|Merging a clean, already-committed branch'
@@ -110,6 +112,7 @@ function Show-GitboxHelp {
 }
 
 if (-not $Spec -or $Spec -in @('--help', '-h', '-?', 'help')) { Show-GitboxHelp; exit 0 }
+if ($Spec -eq 'init') { & (Join-Path $PSScriptRoot 'g-init.ps1'); exit $LASTEXITCODE }
 if ($Spec -in @('--version', 'version')) {
     $manifest = Import-PowerShellDataFile (Join-Path $PSScriptRoot 'gitbox.psd1')
     Write-Host "gitbox $($manifest.ModuleVersion)"
@@ -129,6 +132,7 @@ $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
 $FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional'; Switches = @('Squash','Rebase') }
 $FlagMap['g'] = @{ Script = 'g-branch-base.ps1';    NeedsArg = $false }
 $FlagMap['k'] = @{ Script = 'g-branch-checkout.ps1'; NeedsArg = $true }
+$FlagMap['n'] = @{ Script = 'g-unstack.ps1';         NeedsArg = $false; Switches = @('Force') }
 $FlagMap['z'] = @{ Script = 'g-release.ps1';        NeedsArg = 'optional'; Switches = @('View') }
 $FlagMap['Q'] = @{ Script = 'g-status.ps1';         NeedsArg = $false }
 $FlagMap['S'] = @{ Script = 'g-matrix-scan.ps1';    NeedsArg = $false }
@@ -143,7 +147,7 @@ $FlagMap['P'] = @{ Script = 'g-pr-view.ps1';        NeedsArg = $false }
 $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 $FlagMap['T'] = @{ Script = 'g-stack.ps1';          NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','v','u','o','x','m','g','k','z','H','Q','L','D','P','S','B','C','W','O','X','T')
+$CanonicalOrder = [string[]]@('b','r','s','c','v','u','o','x','m','g','k','n','z','H','Q','L','D','P','S','B','C','W','O','X','T')
 
 # Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) {
