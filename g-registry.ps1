@@ -149,6 +149,20 @@ function Invoke-GitboxEditor {
     return if ($content) { $content } else { $null }
 }
 
+function Get-PRRollup {
+    param($CheckRollup)
+    if (-not $CheckRollup) { return $null }
+    if ($CheckRollup -is [string]) { return $CheckRollup.ToUpper() }
+    if ($CheckRollup.Count -eq 0)  { return $null }
+    $fail    = @($CheckRollup | Where-Object { $_.conclusion -in @('FAILURE','ERROR') -or $_.state -eq 'FAILURE' })
+    $pending = @($CheckRollup | Where-Object { $_.status -in @('QUEUED','IN_PROGRESS') -or $_.state -eq 'PENDING' })
+    $pass    = @($CheckRollup | Where-Object { $_.conclusion -eq 'SUCCESS' -or $_.state -eq 'SUCCESS' })
+    if ($fail.Count -gt 0)    { return 'FAILURE' }
+    if ($pending.Count -gt 0) { return 'PENDING' }
+    if ($pass.Count -gt 0)    { return 'SUCCESS' }
+    return $null
+}
+
 function Get-GitRepoState {
     param(
         [string]$RepoPath = (Get-Location),

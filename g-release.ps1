@@ -66,6 +66,14 @@ function Resolve-NextVersion {
 
 $resolved = Resolve-NextVersion -Arg $Version
 
+if (-not $Version) {
+    $isInteractive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
+    if ($isInteractive) {
+        try { $answer = Read-Host "  release $resolved? [y/N]" } catch { $answer = 'n' }
+        if ($answer -notmatch '^[yY]$') { Write-Host "release aborted"; exit 0 }
+    }
+}
+
 if (git tag --list $resolved 2>$null) {
     Write-Host "tag '$resolved' already exists"; exit 1
 }

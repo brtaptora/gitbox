@@ -210,7 +210,7 @@ $skippableFlags = @('b','r','c','u','o','x','g')
 $skipFlags = @{}
 $skipReasons = @{
     'b' = 'already on feature branch'
-    'r' = 'already on feature branch'
+    'r' = 'rename only applies to wip branches; use gitbox r standalone to rename any branch'
     'c' = 'nothing to commit'
     'u' = 'no unpushed commits'
     'o' = 'PR already open'
@@ -236,6 +236,16 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
         $skipFlags['o'] = ($hPR -in @('PRO','PRA'))
         $skipFlags['x'] = ($hPR -in @('PRO','PRA'))
         $skipFlags['g'] = ($hClass -eq 'B')
+
+        if ($hClass -eq 'B' -and ($steps | Where-Object { $_.Flag -eq 'c' }) -and -not ($steps | Where-Object { $_.Flag -eq 'b' })) {
+            $_gcfg = Get-GitboxConfig
+            if ($_gcfg.BaseBranch -ne $_gcfg.DefaultBranch) {
+                $baseBranchName = git branch --show-current 2>$null
+                Write-Host "gitbox: on base branch '$baseBranchName' -- create a feature branch first"
+                Write-Host "  run: gitbox b `"<name>`""
+                exit 1
+            }
+        }
 
         if ($hClass -eq 'W' -and ($steps | Where-Object { $_.Flag -eq 'c' })) {
             $hasRename = [bool]($steps | Where-Object { $_.Flag -in @('r','b') })

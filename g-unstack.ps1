@@ -11,7 +11,7 @@ if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 $repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
 $baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
-$allPRs = gh pr list --repo $repoName --state open --json number,headRefName,baseRefName,title,statusCheckRollup 2>$null | ConvertFrom-Json
+$allPRs = gh pr list --repo $repoName --state open --json number,headRefName,baseRefName,title,statusCheckRollup,isDraft 2>$null | ConvertFrom-Json
 if (-not $allPRs) { $allPRs = @() }
 
 $headToBase = @{}
@@ -93,6 +93,11 @@ foreach ($b in $ordered) {
     $coOut = git -C $repo checkout $b 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  checkout failed: $($coOut -join ' ')"
+        exit 1
+    }
+
+    if ($pr.isDraft) {
+        Write-Host "unstack: $i/$n — PR #$($pr.number) ($b) is a draft — run: gh pr ready $($pr.number)"
         exit 1
     }
 
