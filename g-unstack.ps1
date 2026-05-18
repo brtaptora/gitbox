@@ -62,7 +62,7 @@ if ($ordered.Count -eq 0) {
 Write-Host ""
 
 $n = $ordered.Count
-$labels = ($ordered | ForEach-Object { $headToPR[$_] | ForEach-Object { "#$($_.number) ($_)" } }) -join ' → '
+$labels = ($ordered | ForEach-Object { "#$($headToPR[$_].number) ($_)" }) -join ' → '
 Write-Host "unstack: will merge $n PR(s) in order: $labels"
 
 if (-not $Force) {
