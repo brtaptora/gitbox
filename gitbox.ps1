@@ -133,7 +133,7 @@ $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
 $FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional'; Switches = @('Squash','Rebase') }
 $FlagMap['g'] = @{ Script = 'g-branch-base.ps1';    NeedsArg = $false; Switches = @('NoStashPop') }
 $FlagMap['k'] = @{ Script = 'g-branch-checkout.ps1'; NeedsArg = $true }
-$FlagMap['n'] = @{ Script = 'g-unstack.ps1';         NeedsArg = $false; Switches = @('Force') }
+$FlagMap['n'] = @{ Script = 'g-unstack.ps1';         NeedsArg = $false; Switches = @('Force','DryRun','Quiet') }
 $FlagMap['z'] = @{ Script = 'g-release.ps1';        NeedsArg = 'optional'; Switches = @('View') }
 $FlagMap['Q'] = @{ Script = 'g-status.ps1';         NeedsArg = $false }
 $FlagMap['S'] = @{ Script = 'g-matrix-scan.ps1';    NeedsArg = $false }
