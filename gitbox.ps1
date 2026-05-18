@@ -287,6 +287,7 @@ while ($i -lt $mutating.Count) {
 
     if ($skipFlags.ContainsKey($flag) -and $skipFlags[$flag]) {
         Write-Host "${_d}  skip $flag ($name): $($skipReasons[$flag])${_rs}"
+        if ($step.Info.NeedsArg -eq $true -and $argQueue.Count -gt 0) { [void]$argQueue.Dequeue() }
         $ran.Add($flag)
         $i++
         continue

@@ -48,7 +48,7 @@ if ($chain.Count -gt 0) {
     $children = @($allPRs | Where-Object { $_.baseRefName -eq $branch })
     if ($children.Count -eq 0) {
         Write-Host "unstack: branch '$branch' is not part of a stacked PR chain"
-        exit 1
+        exit 0
     }
     Get-StackOrder -Head $branch -Out $ordered
 }
