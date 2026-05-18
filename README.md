@@ -157,6 +157,7 @@ gb lan<Tab>      # → land
 | `x` | Report CI check results | — |
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
 | `g` | Checkout base branch and pull | — |
+| `k` | Checkout any named branch with stash-and-pop; no-op if already on that branch | branch name |
 | `z` | Tag and push; on two-branch repos (base ≠ default), opens a PR to default branch, checks CI, and merges first. On single-trunk repos (base = default), tags HEAD directly. Omitting version auto-increments the patch (e.g. `v1.0.0` → `v1.0.1`). Pass `patch`, `minor`, or `major` to bump that segment. Pass an explicit string to pin the version. No existing tags starts at `v0.1.0`. | version, bump keyword, or omit |
 ### Diagnostic Flags
 
@@ -173,6 +174,7 @@ gb lan<Tab>      # → land
 | `O` | Print optimization scores |
 | `X` | Fetch CI run logs grouped by step |
 | `H` | Unified gitbox health report |
+| `T` | Stack topology tree: show stacked PR chain with CI status |
 
 Arguments are positional and consumed left to right by flags that need one.
 
@@ -191,6 +193,8 @@ Arguments are positional and consumed left to right by flags that need one.
 | `revert` | `v` | Undoing a commit. Pair with `push` as `gitbox vu` to also push the revert. |
 | `promote` | `rcuo` | Promote a wip branch to a feature branch with a PR. `r` is skipped automatically on feature branches. |
 | `base` | `g` | Return to base branch after merge or before release |
+| `checkout` | `k` | Switch to any named branch with stash-and-pop |
+| `stack` | `T` | Print the stacked PR chain for the current branch |
 | `land` | `cxm` | Final commit on a branch with an open PR. CI is verified before merge. |
 | `ship` | `xm` | Merging a clean, already-committed branch. CI must pass |
 | `full` | `cuoxm` | One-shot first pass on a new feature: every step from commit through merge |

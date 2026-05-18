@@ -45,6 +45,7 @@ function Show-GitboxHelp {
         'x|pr-checks||Check CI status'
         'm|merge-rotate|[name]|Merge PR, delete branch, create next'
         'g|branch-base||Checkout base branch and pull'
+        'k|branch-checkout|<name>|Checkout any named branch with stash-and-pop'
         'z|release|[version]|Tag and push; promotes develop to main first if applicable'
     ) | ForEach-Object {
         $p = $_ -split '\|', 4
@@ -64,6 +65,7 @@ function Show-GitboxHelp {
         'W|workflow-registry|Named workflows with capabilities'
         'O|optimization|Capability density per script'
         'X|run-logs|Most recent CI run logs'
+        'T|stack|Stack topology: branch chain, PR numbers, CI status'
     ) | ForEach-Object {
         $p = $_ -split '\|', 3
         Write-Host ("    ${_cy}{0}${_rs}  {1,-20}  {2}" -f $p[0], $p[1], $p[2])
@@ -82,6 +84,8 @@ function Show-GitboxHelp {
         'revert|v|Undoing a commit'
         'promote|rcuo|Promote a wip branch to a feature branch with a PR'
         'base|g|Return to base branch after merge or before release'
+        'checkout|k|Switch to any named branch with stash-and-pop'
+        'stack|T|Show current stack topology'
         'land|cxm|Final commit on a branch with an open PR'
         'ship|xm|Merging a clean, already-committed branch'
         'full|cuoxm|One-shot from commit through merge'
@@ -137,8 +141,9 @@ $FlagMap['L'] = @{ Script = 'g-log.ps1';            NeedsArg = $false }
 $FlagMap['D'] = @{ Script = 'g-diff.ps1';           NeedsArg = $false }
 $FlagMap['P'] = @{ Script = 'g-pr-view.ps1';        NeedsArg = $false }
 $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
+$FlagMap['T'] = @{ Script = 'g-stack.ps1';          NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','v','u','o','x','m','g','k','z','H','Q','L','D','P','S','B','C','W','O','X')
+$CanonicalOrder = [string[]]@('b','r','s','c','v','u','o','x','m','g','k','z','H','Q','L','D','P','S','B','C','W','O','X','T')
 
 # Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) {
