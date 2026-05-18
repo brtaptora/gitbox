@@ -157,7 +157,7 @@ gb lan<Tab>      # → land
 | `x` | Report CI check results | — |
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
 | `g` | Checkout base branch and pull | — |
-| `z` | Tag and push; on two-branch repos (base ≠ default), opens a PR to default branch, checks CI, and merges first. On single-trunk repos (base = default), tags HEAD directly. | version (optional) |
+| `z` | Tag and push; on two-branch repos (base ≠ default), opens a PR to default branch, checks CI, and merges first. On single-trunk repos (base = default), tags HEAD directly. Omitting version auto-increments the patch (e.g. `v1.0.0` → `v1.0.1`). Pass `patch`, `minor`, or `major` to bump that segment. Pass an explicit string to pin the version. No existing tags starts at `v0.1.0`. | version, bump keyword, or omit |
 ### Diagnostic Flags
 
 | Flag | Operation |
