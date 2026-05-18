@@ -1,3 +1,5 @@
+param([switch]$NoStashPop)
+
 . (Join-Path $PSScriptRoot 'g-registry.ps1')
 
 $repo = Get-Location
@@ -40,10 +42,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if ($stashed) {
-    $popOut = git -C $repo stash pop 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "warning: stash pop failed -- run: git stash pop"
-        $popOut | ForEach-Object { Write-Host "  $_" }
+    if ($NoStashPop) {
+        Write-Host "  stash preserved -- run: git stash pop to restore changes"
+    } else {
+        $popOut = git -C $repo stash pop 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "warning: stash pop failed -- run: git stash pop"
+            $popOut | ForEach-Object { Write-Host "  $_" }
+        }
     }
 }
 
