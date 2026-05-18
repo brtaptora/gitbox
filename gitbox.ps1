@@ -142,7 +142,7 @@ $FlagMap['C'] = @{ Script = 'g-capabilities.ps1';   NeedsArg = $false }
 $FlagMap['W'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['O'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['H'] = @{ Script = 'g-health.ps1';         NeedsArg = $false }
-$FlagMap['L'] = @{ Script = 'g-log.ps1';            NeedsArg = $false }
+$FlagMap['L'] = @{ Script = 'g-log.ps1';            NeedsArg = $false; Switches = @('Full') }
 $FlagMap['D'] = @{ Script = 'g-diff.ps1';           NeedsArg = $false }
 $FlagMap['P'] = @{ Script = 'g-pr-view.ps1';        NeedsArg = $false }
 $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
@@ -195,13 +195,15 @@ if ($argCount -lt $argSteps.Count) {
 }
 
 # --- Execute mutating steps ---
+$DryRun      = $false
 $argQueue    = [System.Collections.Generic.Queue[string]]::new()
 $restSwitches = @{}
 if ($PipelineArg) { $argQueue.Enqueue($PipelineArg) }
 if ($Rest) {
     foreach ($a in $Rest) {
-        if ("$a" -match '^-([A-Za-z]\w*)$') { $restSwitches[$Matches[1]] = $true }
-        else { $argQueue.Enqueue($a) }
+        if ("$a" -eq '--dry-run')              { $DryRun = $true }
+        elseif ("$a" -match '^-([A-Za-z]\w*)$') { $restSwitches[$Matches[1]] = $true }
+        else                                    { $argQueue.Enqueue($a) }
     }
 }
 
@@ -291,6 +293,13 @@ while ($i -lt $mutating.Count) {
         $ran.Add($flag)
         $i++
         continue
+    }
+
+    if ($DryRun) {
+        $dryArg = if ($step.Info.NeedsArg -eq $true -and $argQueue.Count -gt 0) { " with arg: '$($argQueue.Peek())'" } else { '' }
+        Write-Host "  dry-run: would run $flag ($name)$dryArg"
+        if ($step.Info.NeedsArg -eq $true -and $argQueue.Count -gt 0) { [void]$argQueue.Dequeue() }
+        $ran.Add($flag); $i++; continue
     }
 
     $forceArg    = if ($step.Info.Force) { @{ Force = $true } } else { @{} }
