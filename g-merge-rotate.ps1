@@ -21,6 +21,11 @@ $baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
 if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 
+if ($branch -eq $baseBranch) {
+    Write-Host "on base branch '$baseBranch' -- nothing to merge here; run: gitbox b `"<name>`" to start a feature"
+    exit 1
+}
+
 # Step 1: find open PR for this branch
 $prJson = gh pr list --repo $repoName --head $branch --json number,state 2>$null | ConvertFrom-Json
 if (-not $prJson -or $prJson.Count -eq 0) {

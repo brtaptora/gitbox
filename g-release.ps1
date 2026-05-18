@@ -66,6 +66,13 @@ function Resolve-NextVersion {
 
 $resolved = Resolve-NextVersion -Arg $Version
 
+if ($Version -and $Version -notin @('patch','minor','major') -and
+    $resolved -notmatch '^v?\d+\.\d+\.\d+$' -and
+    $resolved -notmatch '^\d{4}\.\d{2}\.\d{2}(\.\d+)?$') {
+    Write-Host "invalid version '$Version' -- use vMAJOR.MINOR.PATCH or: patch | minor | major"
+    exit 1
+}
+
 if (-not $Version) {
     $isInteractive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
     if ($isInteractive) {
@@ -75,7 +82,8 @@ if (-not $Version) {
 }
 
 if (git tag --list $resolved 2>$null) {
-    Write-Host "tag '$resolved' already exists"; exit 1
+    Write-Host "tag '$resolved' already exists -- use a different version or: gitbox z -View to list existing tags"
+    exit 1
 }
 
 Write-Host "releasing $resolved ..."

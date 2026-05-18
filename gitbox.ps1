@@ -88,6 +88,7 @@ function Show-GitboxHelp {
         'checkout|k|Switch to any named branch with stash-and-pop'
         'unstack|n|Merge the full stacked PR chain bottom-to-top'
         'stack|T|Show current stack topology'
+        'submit|cuo|Commit, push, and open PR — stop before merge'
         'land|cxm|Final commit on a branch with an open PR'
         'ship|xm|Merging a clean, already-committed branch'
         'full|cuoxm|One-shot from commit through merge'
@@ -130,7 +131,7 @@ $FlagMap['u'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
 $FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = 'optional'; Switches = @('Draft') }
 $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
 $FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional'; Switches = @('Squash','Rebase') }
-$FlagMap['g'] = @{ Script = 'g-branch-base.ps1';    NeedsArg = $false }
+$FlagMap['g'] = @{ Script = 'g-branch-base.ps1';    NeedsArg = $false; Switches = @('NoStashPop') }
 $FlagMap['k'] = @{ Script = 'g-branch-checkout.ps1'; NeedsArg = $true }
 $FlagMap['n'] = @{ Script = 'g-unstack.ps1';         NeedsArg = $false; Switches = @('Force') }
 $FlagMap['z'] = @{ Script = 'g-release.ps1';        NeedsArg = 'optional'; Switches = @('View') }
@@ -166,7 +167,9 @@ $flagStr = if ($WorkflowRegistry.Contains($Spec)) {
 # Validate all flag characters
 foreach ($ch in $flagStr.ToCharArray()) {
     if (-not $FlagMap.Contains([string]$ch)) {
-        Write-Host "gitbox: unknown flag '$ch' -- valid flags: $($FlagMap.Keys -join '')"
+        $flip = if ([char]::IsUpper($ch)) { [string][char]::ToLower($ch) } else { [string][char]::ToUpper($ch) }
+        $hint = if ($FlagMap.Contains($flip)) { " (did you mean '$flip'?)" } else { '' }
+        Write-Host "gitbox: unknown flag '$ch'${hint} -- valid flags: $($FlagMap.Keys -join '')"
         exit 1
     }
 }
@@ -200,6 +203,13 @@ if ($Rest) {
         if ("$a" -match '^-([A-Za-z]\w*)$') { $restSwitches[$Matches[1]] = $true }
         else { $argQueue.Enqueue($a) }
     }
+}
+
+$maxConsumable = @($steps | Where-Object { $_.Info.NeedsArg -in @($true, 'optional') }).Count
+if ($argQueue.Count -gt $maxConsumable) {
+    $tempArr   = $argQueue.ToArray()
+    $extraList = for ($qi = $maxConsumable; $qi -lt $tempArr.Count; $qi++) { "'$($tempArr[$qi])'" }
+    Write-Host "${_yw}gitbox: warning -- extra arg(s) ignored: $($extraList -join ', ') -- did you forget to quote the full value?${_rs}"
 }
 
 $mutating = @($steps | Where-Object { $_.Flag -cmatch '[a-z]' })
@@ -288,6 +298,10 @@ while ($i -lt $mutating.Count) {
         foreach ($sw in $step.Info.Switches) {
             if ($restSwitches.ContainsKey($sw)) { $stepSwitches[$sw] = $true }
         }
+    }
+    # g followed by z: stash must not be popped onto base — preserve it for the feature branch
+    if ($flag -eq 'g' -and ($steps | Where-Object { $_.Flag -eq 'z' })) {
+        $stepSwitches['NoStashPop'] = $true
     }
     $splatArgs = $forceArg + $stepSwitches
     $stepLines = [System.Collections.Generic.List[string]]::new()

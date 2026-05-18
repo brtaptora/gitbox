@@ -58,6 +58,9 @@ if ($ordered.Count -eq 0) {
     exit 1
 }
 
+& (Join-Path $PSScriptRoot 'g-stack.ps1')
+Write-Host ""
+
 $n = $ordered.Count
 $labels = ($ordered | ForEach-Object { $headToPR[$_] | ForEach-Object { "#$($_.number) ($_)" } }) -join ' → '
 Write-Host "unstack: will merge $n PR(s) in order: $labels"

@@ -101,6 +101,7 @@ $WorkflowRegistry = [ordered]@{
     unstack  = 'n'
     stack    = 'T'
     promote  = 'rcuo'
+    submit   = 'cuo'
     land     = 'cxm'
     ship     = 'xm'
     full     = 'cuoxm'
