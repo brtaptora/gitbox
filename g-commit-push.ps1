@@ -1,6 +1,7 @@
 param(
     [Parameter(ValueFromPipeline)]
-    [string]$Message
+    [string]$Message,
+    [switch]$Amend
 )
 
 begin {
@@ -43,18 +44,38 @@ process {
         }
     }
 
-    $commitOut = git -C $repo commit -m $Message 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Host "commit failed"; $commitOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
-    $sha = git -C $repo rev-parse --short HEAD 2>$null
+    if ($Amend) {
+        $commitOut = if ($Message) {
+            git -C $repo commit --amend -m $Message 2>&1
+        } else {
+            git -C $repo commit --amend --no-edit 2>&1
+        }
+        if ($LASTEXITCODE -ne 0) { Write-Host "amend failed"; $commitOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+        $sha = git -C $repo rev-parse --short HEAD 2>$null
 
-    Write-Host "pushing origin/$branch ..."
-    $pushOut = git -C $repo push -u origin $branch 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "push failed: origin/$branch"
-        $pushOut | ForEach-Object { Write-Host "  $_" }
-        exit 1
+        Write-Host "pushing origin/$branch ..."
+        $pushOut = git -C $repo push -u origin $branch --force-with-lease 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "push failed: origin/$branch"
+            $pushOut | ForEach-Object { Write-Host "  $_" }
+            exit 1
+        }
+
+        Write-Host "staged $staged |amended $sha |pushed origin/$branch (force)"
+    } else {
+        $commitOut = git -C $repo commit -m $Message 2>&1
+        if ($LASTEXITCODE -ne 0) { Write-Host "commit failed"; $commitOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+        $sha = git -C $repo rev-parse --short HEAD 2>$null
+
+        Write-Host "pushing origin/$branch ..."
+        $pushOut = git -C $repo push -u origin $branch 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "push failed: origin/$branch"
+            $pushOut | ForEach-Object { Write-Host "  $_" }
+            exit 1
+        }
+
+        Write-Host "staged $staged |committed $sha |pushed origin/$branch"
     }
-
-    Write-Host "staged $staged |committed $sha |pushed origin/$branch"
     exit 0
 }

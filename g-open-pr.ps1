@@ -3,7 +3,8 @@ param(
     [string]$Title = "",
 
     [string]$Body = "",
-    [string]$Base = ""
+    [string]$Base = "",
+    [switch]$Draft
 )
 
 begin {
@@ -28,6 +29,16 @@ process {
         exit 0
     }
 
+    if (-not $Body) {
+        $tplPaths = @(
+            (Join-Path $repo '.github/pull_request_template.md'),
+            (Join-Path $repo '.github/PULL_REQUEST_TEMPLATE.md')
+        )
+        foreach ($p in $tplPaths) {
+            if (Test-Path $p) { $Body = Get-Content $p -Raw; break }
+        }
+    }
+
     if (-not $Title) {
         $cfg = Get-GitboxConfig -RepoPath $repo
         if ($cfg.Editor) {
@@ -42,12 +53,13 @@ process {
         }
     }
 
-    $target = if ($Base) { $Base } else { $baseBranch }
+    $target    = if ($Base) { $Base } else { $baseBranch }
+    $draftFlag = if ($Draft) { '--draft' } else { $null }
     Write-Host "opening PR ..."
     $url = if ($Title) {
-        gh pr create --repo $repoName --title $Title --base $target --body $Body 2>&1
+        gh pr create --repo $repoName --title $Title --base $target --body $Body @(if ($draftFlag) { $draftFlag }) 2>&1
     } else {
-        gh pr create --repo $repoName --fill --base $target 2>&1
+        gh pr create --repo $repoName --fill --base $target @(if ($draftFlag) { $draftFlag }) 2>&1
     }
     if ($LASTEXITCODE -ne 0) { Write-Host "pr create failed"; $url | ForEach-Object { Write-Host "  $_" }; exit 1 }
     $number = $url -replace ".*/pull/", ""

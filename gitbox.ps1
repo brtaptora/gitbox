@@ -117,13 +117,14 @@ $FlagMap = [System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)
 $FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true;  Force = $true; Switches = @('Stack') }
 $FlagMap['r'] = @{ Script = 'g-branch-rename.ps1';  NeedsArg = $true  }
 $FlagMap['s'] = @{ Script = 'g-branch-sync.ps1';    NeedsArg = $false }
-$FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = 'optional' }
+$FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = 'optional'; Switches = @('Amend') }
 $FlagMap['v'] = @{ Script = 'g-revert.ps1';         NeedsArg = 'optional' }
 $FlagMap['u'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
-$FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = 'optional' }
+$FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = 'optional'; Switches = @('Draft') }
 $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
 $FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional'; Switches = @('Squash','Rebase') }
 $FlagMap['g'] = @{ Script = 'g-branch-base.ps1';    NeedsArg = $false }
+$FlagMap['k'] = @{ Script = 'g-branch-checkout.ps1'; NeedsArg = $true }
 $FlagMap['z'] = @{ Script = 'g-release.ps1';        NeedsArg = 'optional'; Switches = @('View') }
 $FlagMap['Q'] = @{ Script = 'g-status.ps1';         NeedsArg = $false }
 $FlagMap['S'] = @{ Script = 'g-matrix-scan.ps1';    NeedsArg = $false }
@@ -137,7 +138,7 @@ $FlagMap['D'] = @{ Script = 'g-diff.ps1';           NeedsArg = $false }
 $FlagMap['P'] = @{ Script = 'g-pr-view.ps1';        NeedsArg = $false }
 $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','v','u','o','x','m','g','z','H','Q','L','D','P','S','B','C','W','O','X')
+$CanonicalOrder = [string[]]@('b','r','s','c','v','u','o','x','m','g','k','z','H','Q','L','D','P','S','B','C','W','O','X')
 
 # Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) {
