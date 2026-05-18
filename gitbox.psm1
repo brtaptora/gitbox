@@ -78,6 +78,70 @@ function Rename-GitBranch {
     process { $Name | & (Join-Path $PSScriptRoot 'g-branch-rename.ps1') }
 }
 
+function Switch-GitBranch {
+    param(
+        [Parameter(ValueFromPipeline, Mandatory)]
+        [string]$Name
+    )
+    process { $Name | & (Join-Path $PSScriptRoot 'g-branch-checkout.ps1') }
+}
+
+function Switch-GitBaseBranch {
+    param([switch]$NoStashPop)
+    & (Join-Path $PSScriptRoot 'g-branch-base.ps1') @PSBoundParameters
+}
+
+function Undo-GitCommit {
+    param(
+        [Parameter(ValueFromPipeline)]
+        [string]$Ref
+    )
+    process { & (Join-Path $PSScriptRoot 'g-revert.ps1') @PSBoundParameters }
+}
+
+function Publish-GitRelease {
+    param(
+        [Parameter(ValueFromPipeline)]
+        [string]$Version,
+        [switch]$View
+    )
+    process { & (Join-Path $PSScriptRoot 'g-release.ps1') @PSBoundParameters }
+}
+
+function Invoke-GitUnstack {
+    param([switch]$Force)
+    & (Join-Path $PSScriptRoot 'g-unstack.ps1') @PSBoundParameters
+}
+
+function Get-GitStack {
+    & (Join-Path $PSScriptRoot 'g-stack.ps1')
+}
+
+function Initialize-Gitbox {
+    & (Join-Path $PSScriptRoot 'g-init.ps1')
+}
+
+function Get-GitHealth {
+    param([switch]$Plain, [switch]$Cov, [switch]$Uni, [switch]$CapV)
+    & (Join-Path $PSScriptRoot 'g-health.ps1') @PSBoundParameters
+}
+
+function Get-GitOptimization {
+    & (Join-Path $PSScriptRoot 'g-optimization.ps1')
+}
+
+function Get-GitDiff {
+    & (Join-Path $PSScriptRoot 'g-diff.ps1')
+}
+
+function Get-GitLog {
+    & (Join-Path $PSScriptRoot 'g-log.ps1')
+}
+
+function Show-GitPullRequest {
+    & (Join-Path $PSScriptRoot 'g-pr-view.ps1')
+}
+
 Set-Alias -Name 'g-status'         -Value 'Get-GitStatus'
 Set-Alias -Name 'g-commit-push'    -Value 'Push-GitCommit'
 Set-Alias -Name 'g-open-pr'        -Value 'New-GitPullRequest'
@@ -90,8 +154,20 @@ Set-Alias -Name 'g-run-logs'       -Value 'Get-GitRunLogs'
 Set-Alias -Name 'g-branch-rename'  -Value 'Rename-GitBranch'
 Set-Alias -Name 'g-branch-sync'    -Value 'Sync-GitBranch'
 Set-Alias -Name 'g-push'           -Value 'Push-GitBranch'
-Set-Alias -Name 'g-branch-create'  -Value 'New-GitBranch'
-Set-Alias -Name 'g-pr-checks'      -Value 'Get-GitPullRequestChecks'
+Set-Alias -Name 'g-branch-create'   -Value 'New-GitBranch'
+Set-Alias -Name 'g-pr-checks'       -Value 'Get-GitPullRequestChecks'
+Set-Alias -Name 'g-branch-checkout' -Value 'Switch-GitBranch'
+Set-Alias -Name 'g-branch-base'     -Value 'Switch-GitBaseBranch'
+Set-Alias -Name 'g-revert'          -Value 'Undo-GitCommit'
+Set-Alias -Name 'g-release'         -Value 'Publish-GitRelease'
+Set-Alias -Name 'g-unstack'         -Value 'Invoke-GitUnstack'
+Set-Alias -Name 'g-stack'           -Value 'Get-GitStack'
+Set-Alias -Name 'g-init'            -Value 'Initialize-Gitbox'
+Set-Alias -Name 'g-health'          -Value 'Get-GitHealth'
+Set-Alias -Name 'g-optimization'    -Value 'Get-GitOptimization'
+Set-Alias -Name 'g-diff'            -Value 'Get-GitDiff'
+Set-Alias -Name 'g-log'             -Value 'Get-GitLog'
+Set-Alias -Name 'g-pr-view'         -Value 'Show-GitPullRequest'
 
 function Invoke-Gitbox {
     param(
