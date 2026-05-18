@@ -215,7 +215,7 @@ Before executing mutating flags the orchestrator scans the current matrix state 
 
 | Flag | Skipped when |
 |------|-------------|
-| `b` | Already on a feature branch |
+| `b` | Already on a feature branch (unless `-Stack` is passed) |
 | `r` | Already on a feature branch AND part of a compound sequence (standalone `gitbox r` always runs) |
 | `c` | Nothing to commit or stage |
 | `u` | All commits already pushed |
@@ -236,6 +236,31 @@ To skip the prompt entirely and always commit on the wip branch, pass `-AllowWip
 ```powershell
 gitbox ship "all done" -AllowWip
 ```
+
+### Stacked PRs
+
+To build a chain of PRs where each one targets the previous feature branch instead of base, pass `-Stack` to `b`:
+
+```powershell
+gitbox b "feat/A"             # from base (normal)
+gitbox c "add part A"
+gitbox b "feat/B" -Stack      # from feat/A
+gitbox c "add part B"
+gitbox b "feat/C" -Stack      # from feat/B
+```
+
+Each branch then gets its own PR: `feat/A` → base, `feat/B` → `feat/A`, `feat/C` → `feat/B`.
+
+When `gitbox m` merges `feat/A`, it detects the downstream PR (`feat/B` → `feat/A`) and automatically:
+1. Rebases `feat/B` onto base (`--onto`)
+2. Force-pushes `feat/B`
+3. Retargets the PR to base
+
+The merge then proceeds and `feat/A` is deleted safely. `feat/B`'s PR now targets base. `feat/C`'s PR still targets `feat/B` and will be handled when `feat/B` is merged.
+
+If the rebase produces a conflict, the merge is aborted. Resolve with `git rebase --continue`, push, then retry `gitbox m`.
+
+Squash merge strategy can produce conflicts during stack rebase because individual commits from the merged branch are not in base history. `MergeStrategy: merge` in `.gitbox.json` avoids this.
 
 ### Additional Examples
 

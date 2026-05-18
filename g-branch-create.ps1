@@ -2,7 +2,8 @@ param(
     [Parameter(ValueFromPipeline, Mandatory)]
     [string]$Name,
 
-    [switch]$Force
+    [switch]$Force,
+    [switch]$Stack
 )
 
 begin {
@@ -35,24 +36,29 @@ process {
         exit 0
     }
 
-    if ($branch -ne $baseBranch) {
-        if ($branch -match '^wip/') {
-            # wip/ is a known transitional state after merge-rotate; auto-checkout base
-            $coOut = git -C $repo checkout $baseBranch 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "checkout $baseBranch failed: $($coOut -join ' ')"; exit 1
+    $parentBranch = $baseBranch
+    if ($Stack) {
+        $parentBranch = $branch
+    } else {
+        if ($branch -ne $baseBranch) {
+            if ($branch -match '^wip/') {
+                # wip/ is a known transitional state after merge-rotate; auto-checkout base
+                $coOut = git -C $repo checkout $baseBranch 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Host "checkout $baseBranch failed: $($coOut -join ' ')"; exit 1
+                }
+            } else {
+                Write-Host "must be on base branch ($baseBranch); currently on '$branch'"; exit 1
             }
-        } else {
-            Write-Host "must be on base branch ($baseBranch); currently on '$branch'"; exit 1
         }
-    }
 
-    Write-Host "pulling $baseBranch ..."
-    $pullOut = git -C $repo pull origin $baseBranch 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "pull failed"
-        $pullOut | ForEach-Object { Write-Host "  $_" }
-        exit 1
+        Write-Host "pulling $baseBranch ..."
+        $pullOut = git -C $repo pull origin $baseBranch 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "pull failed"
+            $pullOut | ForEach-Object { Write-Host "  $_" }
+            exit 1
+        }
     }
 
     $checkoutOut = git -C $repo checkout -b $Name 2>&1
@@ -60,6 +66,6 @@ process {
         Write-Host "branch create failed: $($checkoutOut -join ' ')"; exit 1
     }
 
-    Write-Host "created $Name from $baseBranch"
+    Write-Host "created $Name from $parentBranch"
     exit 0
 }

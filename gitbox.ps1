@@ -114,7 +114,7 @@ if ($Spec -in @('--version', 'version')) {
 
 # Case-sensitive: lowercase=mutating, uppercase=diagnostic; 's' and 'S' are distinct keys
 $FlagMap = [System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)
-$FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true;  Force = $true }
+$FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true;  Force = $true; Switches = @('Stack') }
 $FlagMap['r'] = @{ Script = 'g-branch-rename.ps1';  NeedsArg = $true  }
 $FlagMap['s'] = @{ Script = 'g-branch-sync.ps1';    NeedsArg = $false }
 $FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = 'optional' }
@@ -219,7 +219,7 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
     $hashRaw = ($scanOut | Where-Object { "$_" -match '^[BFW]\|' }) | Select-Object -First 1
     if ($hashRaw -and "$hashRaw" -match '^([BFW])\|([^|]+)\|a\d+\|b\d+\|([PU])\|(PR[-DXOA]+)$') {
         $hClass = $Matches[1]; $hDirty = $Matches[2]; $hPush = $Matches[3]; $hPR = $Matches[4]
-        $skipFlags['b'] = ($hClass -eq 'F')
+        $skipFlags['b'] = ($hClass -eq 'F') -and (-not $restSwitches.ContainsKey('Stack'))
         $skipFlags['r'] = ($hClass -ne 'W') -and ($mutating.Count -gt 1)
         $skipFlags['c'] = ($hDirty -eq 'c')
         $skipFlags['u'] = ($hPush  -eq 'P')
