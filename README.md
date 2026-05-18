@@ -110,6 +110,20 @@ When no config file exists all fields fall back to defaults. Omit the file entir
 
 ## Install As Module
 
+**From PSGallery (recommended):**
+
+```powershell
+Install-Module gitbox
+```
+
+Then add to your `$PROFILE` so it loads automatically each session:
+
+```powershell
+Add-Content $PROFILE "`nImport-Module gitbox"
+```
+
+**From source:**
+
 ```powershell
 Import-Module .\gitbox.psd1
 ```
