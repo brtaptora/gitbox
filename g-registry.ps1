@@ -69,6 +69,7 @@ $FlagScripts = @{
     o = 'g-open-pr.ps1'
     x = 'g-pr-checks.ps1'
     m = 'g-merge-rotate.ps1'
+    g = 'g-branch-base.ps1'
     z = 'g-release.ps1'
 }
 $FlagCapabilities = @{}
@@ -93,7 +94,8 @@ $WorkflowRegistry = [ordered]@{
     checks  = 'x'
     merge   = 'm'
     revert  = 'v'
-    draft   = 'rcuo'
+    base    = 'g'
+    promote = 'rcuo'
     land    = 'cxm'
     ship    = 'xm'
     full    = 'cuoxm'

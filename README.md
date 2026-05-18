@@ -156,7 +156,8 @@ gb lan<Tab>      # → land
 | `o` | Open PR against base branch | PR title (optional, prompts or uses `--fill` if absent) |
 | `x` | Report CI check results | — |
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
-| `z` | Release: open PR to default branch, check CI, merge, tag, push tag | version (optional) |
+| `g` | Checkout base branch and pull | — |
+| `z` | Tag and push; on two-branch repos (base ≠ default), opens a PR to default branch, checks CI, and merges first. On single-trunk repos (base = default), tags HEAD directly. | version (optional) |
 ### Diagnostic Flags
 
 | Flag | Operation |
@@ -188,7 +189,8 @@ Arguments are positional and consumed left to right by flags that need one.
 | `checks` | `x` | Inspecting CI status mid-review without merging |
 | `merge` | `m` | Merging an approved PR and rotating to the next branch |
 | `revert` | `v` | Undoing a commit. Pair with `push` as `gitbox vu` to also push the revert. |
-| `draft` | `rcuo` | Starting a new feature from a wip branch. `r` is skipped automatically on feature branches. |
+| `promote` | `rcuo` | Promote a wip branch to a feature branch with a PR. `r` is skipped automatically on feature branches. |
+| `base` | `g` | Return to base branch after merge or before release |
 | `land` | `cxm` | Final commit on a branch with an open PR. CI is verified before merge. |
 | `ship` | `xm` | Merging a clean, already-committed branch. CI must pass |
 | `full` | `cuoxm` | One-shot first pass on a new feature: every step from commit through merge |
@@ -219,6 +221,7 @@ Before executing mutating flags the orchestrator scans the current matrix state 
 | `u` | All commits already pushed |
 | `o` | PR already open or approved |
 | `x` | No failing checks |
+| `g` | Already on base branch |
 
 A skipped flag prints `skip <flag> (<name>): <reason>` and the pipeline continues to the next flag.
 
@@ -226,7 +229,7 @@ A skipped flag prints `skip <flag> (<name>): <reason>` and the pipeline continue
 
 The `c` flag (and any workflow containing `c`) detects when the current branch is an unnamed `wip/` branch and pauses to prompt for a new name. Enter a name to rename the branch and continue. Press Enter to proceed on the wip branch as-is.
 
-The `draft` workflow handles this automatically: pass the feature branch name as the first arg and `r` runs before `c`, so the rename happens without a prompt. On a feature branch `r` is skipped and the remaining args flow straight to `c` and `o`.
+The `promote` workflow handles this automatically: pass the feature branch name as the first arg and `r` runs before `c`, so the rename happens without a prompt. On a feature branch `r` is skipped and the remaining args flow straight to `c` and `o`.
 
 To skip the prompt entirely and always commit on the wip branch, pass `-AllowWip`:
 
