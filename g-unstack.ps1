@@ -112,7 +112,7 @@ foreach ($b in $ordered) {
     }
 
     Write-Host "unstack: $i/$n — merging #$($pr.number) ($b) ..."
-    & (Join-Path $PSScriptRoot 'g-merge-rotate.ps1')
+    & (Join-Path $PSScriptRoot 'g-merge-rotate.ps1') -SuppressWipWarning
     if ($LASTEXITCODE -ne 0) {
         Write-Host "unstack: $i/$n — merge failed for #$($pr.number) ($b); halting"
         exit 1
