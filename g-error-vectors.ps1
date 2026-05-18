@@ -10,8 +10,9 @@ $ErrorVectors = @{
     CONFLICT  = @('conflict', 'merge conflict', 'cannot merge', 'automatic merge failed')
     NO_BRANCH = @('unknown revision', 'not a valid object', 'pathspec did not match')
     CHECKS    = @('required status checks', 'failing checks', 'check failed', 'status check', 'blocked')
-    NO_PR     = @('no pull requests', 'pull request not found', 'no open pull requests')
-    PROTECTED = @('protected branch', 'cannot force push', 'push declined')
+    NO_PR       = @('no pull requests', 'pull request not found', 'no open pull requests')
+    PROTECTED   = @('protected branch', 'cannot force push', 'push declined')
+    NOT_ON_BASE = @('must be on base branch', 'must be on base')
 }
 
 function Resolve-OutputToVector {
@@ -79,7 +80,8 @@ function Resolve-MatrixAction {
             'CONFLICT'  { $action = 'resolve conflict: git status -> fix files -> git add -> git rebase --continue'; $dim = $null }
             'PROTECTED' { $action = 'branch is protected -- check branch protection rules'; $dim = $null }
             'NO_REMOTE' { $action = 'no remote: git remote add origin <url>'; $dim = $null }
-            'NO_BRANCH' { $action = 'branch not found -- check: git branch -a'; $dim = $null }
+            'NO_BRANCH'    { $action = 'branch not found -- check: git branch -a'; $dim = $null }
+            'NOT_ON_BASE'  { $action = 'gitbox base'; $dim = $null }
         }
     }
     return [pscustomobject]@{ Action = $action; Dim = $dim; Class = $class; Ahead = $ahead; Behind = $behind; Pr = $pr }
