@@ -14,6 +14,12 @@ process {
     $branch = git -C $repo branch --show-current 2>$null
     if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 
+    $cfg = Get-GitboxConfig -RepoPath $repo
+    if ($branch -eq $cfg.BaseBranch) {
+        Write-Host "commit-abort: on base branch '$branch' -- create a feature branch first: gitbox b ""feat/name"""
+        exit 1
+    }
+
     # must run before git add -A; staged files cannot be selectively removed without resetting the index
     $pending = git -C $repo status --porcelain 2>$null | Where-Object { $_ } | ForEach-Object { $_.Substring(3) }
     $blocked = $pending | Where-Object { $_ -match $SecretPattern }
