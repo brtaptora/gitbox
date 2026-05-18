@@ -3,7 +3,8 @@ param(
     [string]$Name,
     [int]$Steps = [int]::MaxValue,
     [switch]$Squash,
-    [switch]$Rebase
+    [switch]$Rebase,
+    [switch]$SuppressWipWarning
 )
 
 . (Join-Path $PSScriptRoot 'g-registry.ps1')
@@ -142,6 +143,8 @@ if ($postMerge -eq 'base') {
         exit 1
     }
     Write-Host "merged #$prNumber |deleted $branch |new branch $newBranch"
-    Write-Host "  ! on wip branch -- run: gitbox r ""<name>"" to rename, or: gitbox g to return to base"
+    if (-not $SuppressWipWarning) {
+        Write-Host "  ! on wip branch -- run: gitbox r ""<name>"" to rename, or: gitbox g to return to base"
+    }
 }
 exit 0
