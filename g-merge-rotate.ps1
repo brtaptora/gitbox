@@ -109,9 +109,18 @@ if ($LASTEXITCODE -ne 0) { Write-Host "  warning: local branch delete failed: $(
 if (5 -ge $Steps) { exit 0 }
 
 # Step 6: create next branch — use supplied name or fall back to wip/ timestamp
-$newBranch = if ($Name) { $Name } else { "wip/$(Get-Date -Format 'MMdd-HHmm')" }
+$newBranch = if ($Name) { $Name } else { "wip/$(Get-Date -Format 'MMdd-HHmmss')" }
 $newBranchOut = git -C $repo checkout -b $newBranch 2>&1
-if ($LASTEXITCODE -ne 0) { Write-Host "checkout -b $newBranch failed"; $newBranchOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+if ($LASTEXITCODE -ne 0) {
+    if (($newBranchOut -join '') -match 'already exists') {
+        Write-Host "  wip branch '$newBranch' already exists -- run: git branch -d $newBranch"
+    } else {
+        Write-Host "checkout -b $newBranch failed"
+        $newBranchOut | ForEach-Object { Write-Host "  $_" }
+    }
+    exit 1
+}
 
 Write-Host "merged #$prNumber |deleted $branch |new branch $newBranch"
+Write-Host "  ! on wip branch -- run: gitbox r ""<name>"" to rename, or: gitbox g to return to base"
 exit 0
