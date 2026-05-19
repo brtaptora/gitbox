@@ -123,7 +123,9 @@ Place `.gitbox.json` in the repo root to declare the branch topology for that re
   "BaseBranch": "develop",
   "DefaultBranch": "main",
   "MergeStrategy": "squash",
-  "Editor": true
+  "Editor": true,
+  "Upstream": "owner/repo",
+  "NeverStage": ["*.env", "secrets/", "*.log"]
 }
 ```
 
@@ -134,6 +136,7 @@ Place `.gitbox.json` in the repo root to declare the branch topology for that re
 | `MergeStrategy` | `merge` | Merge strategy for `m`: `merge`, `squash`, or `rebase`. Overridden per call with `-Squash` / `-Rebase`. |
 | `Editor` | `false` | When `true`, `c` and `o` open `$GIT_EDITOR` when called without an arg instead of prompting with `Read-Host` |
 | `Upstream` | `null` | When set, enables fork mode. Value is `owner/repo` of the upstream (original) repository. |
+| `NeverStage` | `[]` | Glob patterns always excluded from staging on every `c` run. Equivalent to passing `-Exclude` every time. Applied after `git add -A`; use for files tracked by git but never meant to be committed (credentials, generated logs, local overrides). |
 
 When no config file exists all fields fall back to defaults. Omit the file entirely for single-trunk repos where base and default are the same branch.
 
