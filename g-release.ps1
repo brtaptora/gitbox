@@ -87,8 +87,6 @@ if (git tag --list $resolved 2>$null) {
     exit 1
 }
 
-Write-Host "releasing $resolved ..."
-
 $prNumber = $null
 if ($cfg.BaseBranch -ne $cfg.DefaultBranch) {
     $prOut = "release $resolved" | & (Join-Path $PSScriptRoot 'g-open-pr.ps1') -Base $cfg.DefaultBranch
@@ -106,22 +104,22 @@ if ($cfg.BaseBranch -ne $cfg.DefaultBranch) {
     if ($LASTEXITCODE -ne 0) { Write-Host "merge failed; branch '$($cfg.BaseBranch)' preserved"; exit 1 }
 
     $coOut = git -C $repo checkout $cfg.DefaultBranch 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Host "checkout $($cfg.DefaultBranch) failed"; $coOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Host "checkout $($cfg.DefaultBranch) failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $coOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
     $pullOut = git -C $repo pull origin $cfg.DefaultBranch 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Host "pull $($cfg.DefaultBranch) failed"; $pullOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Host "pull $($cfg.DefaultBranch) failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $pullOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
 }
 
 $tagOut = git -C $repo tag $resolved 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Host "tag failed: $($tagOut -join ' ')"; exit 1 }
 
 $pushOut = git -C $repo push origin $resolved 2>&1
-if ($LASTEXITCODE -ne 0) { Write-Host "push tag failed"; $pushOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+if ($LASTEXITCODE -ne 0) { Write-Host "push tag failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $pushOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
 
 if ($cfg.BaseBranch -ne $cfg.DefaultBranch) {
     $coBackOut = git -C $repo checkout $cfg.BaseBranch 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Host "checkout $($cfg.BaseBranch) failed"; $coBackOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Host "checkout $($cfg.BaseBranch) failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $coBackOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
     $pullBackOut = git -C $repo pull origin $cfg.BaseBranch 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Host "pull $($cfg.BaseBranch) failed"; $pullBackOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Host "pull $($cfg.BaseBranch) failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $pullBackOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
     Write-Host "released $resolved |PR #$prNumber merged |tagged |back on $($cfg.BaseBranch)"
 } else {
     Write-Host "released $resolved |tagged |on $($cfg.BaseBranch)"

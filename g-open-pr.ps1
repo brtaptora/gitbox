@@ -92,13 +92,12 @@ process {
     }
 
     $headArgs = if ($upstreamRepo) { @('--head', $prHead) } else { @() }
-    Write-Host "opening PR ..."
     $url = if ($Title) {
         gh pr create --repo $prRepo --title $Title --base $target --body $Body @headArgs @(if ($draftFlag) { $draftFlag }) 2>&1
     } else {
         gh pr create --repo $prRepo --fill --base $target @headArgs @(if ($draftFlag) { $draftFlag }) 2>&1
     }
-    if ($LASTEXITCODE -ne 0) { Write-Host "pr create failed"; $url | ForEach-Object { Write-Host "  $_" }; exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Host "pr create failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $url | ForEach-Object { Write-Host "  $_" } }; exit 1 }
     $number = $url -replace ".*/pull/", ""
 
     Write-Host "PR #$number opened |$url"

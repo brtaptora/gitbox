@@ -30,25 +30,24 @@ $parentCount = (git -C $repo cat-file -p $resolved 2>$null |
 $mFlag = if ($parentCount -gt 1) { @('-m', '1') } else { @() }
 if ($parentCount -gt 1) { Write-Host "  (merge commit: using -m 1 mainline parent)" }
 
-Write-Host "reverting $shortHash ..."
 if ($customMessage) {
     $revertOut = git -C $repo revert $target $mFlag --no-commit 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "revert failed"
-        $revertOut | ForEach-Object { Write-Host "  $_" }
+        if ($VerbosePreference -ne 'SilentlyContinue') { $revertOut | ForEach-Object { Write-Host "  $_" } }
         exit 1
     }
     $commitOut = git -C $repo commit -m $customMessage 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "commit failed; revert staged but not committed -- run: git commit -m <message>"
-        $commitOut | ForEach-Object { Write-Host "  $_" }
+        if ($VerbosePreference -ne 'SilentlyContinue') { $commitOut | ForEach-Object { Write-Host "  $_" } }
         exit 1
     }
 } else {
     $revertOut = git -C $repo revert $target $mFlag --no-edit 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "revert failed"
-        $revertOut | ForEach-Object { Write-Host "  $_" }
+        if ($VerbosePreference -ne 'SilentlyContinue') { $revertOut | ForEach-Object { Write-Host "  $_" } }
         exit 1
     }
 }

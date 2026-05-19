@@ -1,3 +1,6 @@
+[CmdletBinding()]
+param()
+
 . (Join-Path $PSScriptRoot 'g-registry.ps1')
 
 $repo = Get-Location
@@ -34,7 +37,7 @@ if (-not $noRemote -and $ahead -eq 0) {
 $pushOut = git -C $repo push origin -u $branch 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "push failed"
-    $pushOut | ForEach-Object { Write-Host "  $_" }
+    if ($VerbosePreference -ne 'SilentlyContinue') { $pushOut | ForEach-Object { Write-Host "  $_" } }
     exit 1
 }
 
