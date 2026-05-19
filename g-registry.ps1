@@ -118,7 +118,7 @@ $WorkflowRegistry = [ordered]@{
 function Get-GitboxConfig {
     param([string]$RepoPath = (Get-Location))
     $cfgPath = Join-Path $RepoPath '.gitbox.json'
-    $base = $null; $default = $null; $mergeStrategy = $null; $editor = $null; $postMerge = $null; $upstream = $null
+    $base = $null; $default = $null; $mergeStrategy = $null; $editor = $null; $postMerge = $null; $upstream = $null; $neverStage = @()
     if (Test-Path $cfgPath) {
         $cfg     = Get-Content $cfgPath -Raw | ConvertFrom-Json
         $base    = $cfg.BaseBranch
@@ -127,6 +127,7 @@ function Get-GitboxConfig {
         if ($null -ne $cfg.Editor)  { $editor        = [bool]$cfg.Editor }
         if ($cfg.PostMerge)         { $postMerge     = $cfg.PostMerge.ToLower() }
         if ($cfg.Upstream)          { $upstream      = $cfg.Upstream }
+        if ($cfg.NeverStage)        { $neverStage    = [string[]]$cfg.NeverStage }
     } else {
         $default       = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
         if (-not $default) { $default = 'main' }
@@ -140,7 +141,7 @@ function Get-GitboxConfig {
     if ($null -eq $mergeStrategy)  { $mergeStrategy = 'merge' }
     if ($null -eq $editor)         { $editor        = $false }
     if ($null -eq $postMerge)      { $postMerge     = 'wip' }
-    return @{ BaseBranch = $base; DefaultBranch = $default; MergeStrategy = $mergeStrategy; Editor = $editor; PostMerge = $postMerge; Upstream = $upstream }
+    return @{ BaseBranch = $base; DefaultBranch = $default; MergeStrategy = $mergeStrategy; Editor = $editor; PostMerge = $postMerge; Upstream = $upstream; NeverStage = $neverStage }
 }
 
 function Invoke-GitboxEditor {

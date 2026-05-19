@@ -1,3 +1,4 @@
+[CmdletBinding()]
 param(
     [switch]$Force,
     [switch]$DryRun,
@@ -117,7 +118,8 @@ foreach ($b in $ordered) {
     if (-not $Quiet) { Write-Host "unstack: $i/$n — checking out $b ..." }
     $coOut = git -C $repo checkout $b 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "  checkout failed: $($coOut -join ' ')"
+        Write-Host "checkout failed: $b"
+        if ($VerbosePreference -ne 'SilentlyContinue') { $coOut | ForEach-Object { Write-Host "  $_" } }
         exit 1
     }
 

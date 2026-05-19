@@ -1,5 +1,5 @@
 param(
-    [Parameter(ValueFromPipeline, Mandatory)]
+    [Parameter(Position=0, ValueFromPipeline, Mandatory)]
     [string]$Name
 )
 
@@ -23,7 +23,7 @@ process {
         $stashOut = git -C $repo stash push -m 'gitbox-checkout' 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "stash failed"
-            $stashOut | ForEach-Object { Write-Host "  $_" }
+            if ($VerbosePreference -ne 'SilentlyContinue') { $stashOut | ForEach-Object { Write-Host "  $_" } }
             exit 1
         }
         $stashed = $true
@@ -32,7 +32,7 @@ process {
     $coOut = git -C $repo checkout $Name 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "checkout $Name failed"
-        $coOut | ForEach-Object { Write-Host "  $_" }
+        if ($VerbosePreference -ne 'SilentlyContinue') { $coOut | ForEach-Object { Write-Host "  $_" } }
         if ($stashed) { git -C $repo stash pop 2>$null | Out-Null }
         exit 1
     }
@@ -41,7 +41,7 @@ process {
         $popOut = git -C $repo stash pop 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "warning: stash pop failed -- run: git stash pop"
-            $popOut | ForEach-Object { Write-Host "  $_" }
+            if ($VerbosePreference -ne 'SilentlyContinue') { $popOut | ForEach-Object { Write-Host "  $_" } }
         }
     }
 

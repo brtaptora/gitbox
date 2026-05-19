@@ -1,7 +1,9 @@
 param(
     [Parameter(ValueFromPipeline)]
     [string]$Message,
-    [switch]$Amend
+    [switch]$Amend,
+    [string[]]$Include,
+    [string[]]$Exclude
 )
 
 begin {
@@ -36,8 +38,21 @@ process {
         exit 1
     }
 
-    $addOut = git -C $repo add -A 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Host "stage failed"; $addOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+    $allExcludes = @()
+    if ($Exclude)                         { $allExcludes += $Exclude }
+    if ($cfg.NeverStage -and $cfg.NeverStage.Count -gt 0) { $allExcludes += $cfg.NeverStage }
+
+    if ($Include) {
+        $addOut = git -C $repo add -- @Include 2>&1
+    } else {
+        $addOut = git -C $repo add -A 2>&1
+        if ($LASTEXITCODE -eq 0 -and $allExcludes.Count -gt 0) {
+            foreach ($pat in $allExcludes) {
+                git -C $repo restore --staged -- $pat 2>$null | Out-Null
+            }
+        }
+    }
+    if ($LASTEXITCODE -ne 0) { Write-Host "stage failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $addOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
     $staged = (git -C $repo diff --cached --name-only 2>$null | Measure-Object -Line).Lines
     if ($staged -eq 0) { Write-Host "nothing to commit"; exit 0 }
 
@@ -63,28 +78,26 @@ process {
         } else {
             git -C $repo commit --amend --no-edit 2>&1
         }
-        if ($LASTEXITCODE -ne 0) { Write-Host "amend failed"; $commitOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+        if ($LASTEXITCODE -ne 0) { Write-Host "amend failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $commitOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
         $sha = git -C $repo rev-parse --short HEAD 2>$null
 
-        Write-Host "pushing origin/$branch ..."
         $pushOut = git -C $repo push -u origin $branch --force-with-lease 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "push failed: origin/$branch"
-            $pushOut | ForEach-Object { Write-Host "  $_" }
+            if ($VerbosePreference -ne 'SilentlyContinue') { $pushOut | ForEach-Object { Write-Host "  $_" } }
             exit 1
         }
 
         Write-Host "staged $staged |amended $sha |pushed origin/$branch (force)"
     } else {
         $commitOut = git -C $repo commit -m $Message 2>&1
-        if ($LASTEXITCODE -ne 0) { Write-Host "commit failed"; $commitOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+        if ($LASTEXITCODE -ne 0) { Write-Host "commit failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $commitOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
         $sha = git -C $repo rev-parse --short HEAD 2>$null
 
-        Write-Host "pushing origin/$branch ..."
         $pushOut = git -C $repo push -u origin $branch 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "push failed: origin/$branch"
-            $pushOut | ForEach-Object { Write-Host "  $_" }
+            if ($VerbosePreference -ne 'SilentlyContinue') { $pushOut | ForEach-Object { Write-Host "  $_" } }
             exit 1
         }
 

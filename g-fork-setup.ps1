@@ -47,11 +47,10 @@ if ($inRepo) {
     }
 
     if (-not $upRemoteUrl) {
-        Write-Host "forking $Upstream ..."
         $forkOut = gh repo fork --remote-name upstream 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "fork failed"
-            $forkOut | ForEach-Object { Write-Host "  $_" }
+            if ($VerbosePreference -ne 'SilentlyContinue') { $forkOut | ForEach-Object { Write-Host "  $_" } }
             exit 1
         }
     } else {
@@ -70,11 +69,10 @@ if (-not $Upstream) {
     exit 1
 }
 
-Write-Host "forking and cloning $Upstream ..."
 $forkOut = gh repo fork $Upstream --clone --remote-name upstream 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "fork failed"
-    $forkOut | ForEach-Object { Write-Host "  $_" }
+    if ($VerbosePreference -ne 'SilentlyContinue') { $forkOut | ForEach-Object { Write-Host "  $_" } }
     exit 1
 }
 
