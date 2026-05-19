@@ -16,11 +16,14 @@ def save(items: list[dict]) -> None:
     DATA_FILE.write_text(json.dumps(items, indent=2))
 
 
-def add(text: str) -> None:
+def add(text: str, priority: str = "normal") -> None:
+    if priority not in ("low", "normal", "high"):
+        print(f"invalid priority: {priority}  (use: low, normal, high)")
+        return
     items = load()
-    items.append({"id": len(items) + 1, "text": text, "done": False})
+    items.append({"id": len(items) + 1, "text": text, "done": False, "priority": priority})
     save(items)
-    print(f"added: {text}")
+    print(f"added [{priority}]: {text}")
 
 
 def done(item_id: int) -> None:
@@ -41,7 +44,9 @@ def list_items() -> None:
         return
     for item in items:
         mark = "x" if item["done"] else " "
-        print(f"[{mark}] {item['id']}. {item['text']}")
+        pri = item.get("priority", "normal")
+        pri_tag = f" [{pri}]" if pri != "normal" else ""
+        print(f"[{mark}] {item['id']}.{pri_tag} {item['text']}")
 
 
 def delete(item_id: int) -> None:
@@ -56,10 +61,10 @@ def delete(item_id: int) -> None:
 
 
 USAGE = """todo <command> [args]
-  add <text>    add a todo item
-  done <id>     mark item done
-  list          list all items
-  delete <id>   remove item
+  add <text> [priority]   add a todo item (priority: low, normal, high)
+  done <id>               mark item done
+  list                    list all items
+  delete <id>             remove item
 """
 
 
@@ -70,7 +75,9 @@ def main() -> None:
         return
     cmd = args[0]
     if cmd == "add" and len(args) > 1:
-        add(" ".join(args[1:]))
+        last = args[-1] if args[-1] in ("low", "normal", "high") else "normal"
+        text_args = args[1:-1] if last != "normal" else args[1:]
+        add(" ".join(text_args), last)
     elif cmd == "done" and len(args) == 2:
         done(int(args[1]))
     elif cmd == "list":
