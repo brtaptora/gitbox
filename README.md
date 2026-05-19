@@ -86,6 +86,34 @@ git --version
 gh auth status
 ```
 
+## Install As Module
+
+**From PSGallery (recommended):**
+
+```powershell
+Install-Module gitbox
+```
+
+Then add to your `$PROFILE` so it loads automatically each session:
+
+```powershell
+Add-Content $PROFILE "`nImport-Module gitbox"
+```
+
+To update from PSGallery:
+
+```powershell
+Update-Module -Name gitbox
+```
+
+**From source:**
+
+```powershell
+Import-Module .\gitbox.psd1
+```
+
+Each script has a `g-` alias and a verb-noun function name. Either form works after import. The module also exports `gitbox` and `gb` as aliases for the orchestrator, and registers tab completion for both.
+
 ## Configuration
 
 Place `.gitbox.json` in the repo root to declare the branch topology for that repo:
@@ -105,30 +133,71 @@ Place `.gitbox.json` in the repo root to declare the branch topology for that re
 | `DefaultBranch` | result of `gh repo view --json defaultBranchRef` | Release / trunk branch; fallback when `BaseBranch` is absent |
 | `MergeStrategy` | `merge` | Merge strategy for `m`: `merge`, `squash`, or `rebase`. Overridden per call with `-Squash` / `-Rebase`. |
 | `Editor` | `false` | When `true`, `c` and `o` open `$GIT_EDITOR` when called without an arg instead of prompting with `Read-Host` |
+| `Upstream` | `null` | When set, enables fork mode. Value is `owner/repo` of the upstream (original) repository. |
 
 When no config file exists all fields fall back to defaults. Omit the file entirely for single-trunk repos where base and default are the same branch.
 
-## Install As Module
+## Fork Workflow
 
-**From PSGallery (recommended):**
+Fork mode is for contributors who do not have direct push access to a repository. All commits land on a personal fork. PRs target the upstream repo only when explicitly requested.
 
-```powershell
-Install-Module gitbox
-```
+### Setup
 
-Then add to your `$PROFILE` so it loads automatically each session:
+**From scratch** (no local clone yet):
 
 ```powershell
-Add-Content $PROFILE "`nImport-Module gitbox"
+gitbox fork owner/repo
+# forks to your account, clones the fork, writes .gitbox.json
+# then: cd <reponame>
 ```
 
-**From source:**
+**Already cloned the upstream**:
 
 ```powershell
-Import-Module .\gitbox.psd1
+cd the-repo
+gitbox fork owner/repo
+# forks to your account, reconfigures remotes, writes .gitbox.json
 ```
 
-Each script has a `g-` alias and a verb-noun function name. Either form works after import. The module also exports `gitbox` and `gb` as aliases for the orchestrator, and registers tab completion for both.
+Both paths write `.gitbox.json` with `Upstream` set to `owner/repo` and `BaseBranch` set to `develop` if that branch exists on the upstream, or the upstream's default branch otherwise.
+
+After setup the remote layout is:
+
+| Remote | Points to |
+|--------|-----------|
+| `origin` | your fork |
+| `upstream` | original repo |
+
+### Working in Fork Mode
+
+The standard workflow is unchanged. `gitbox c`, `gitbox u`, and all compounds push to `origin` (your fork).
+
+```powershell
+gitbox b "feat/my-fix"
+gitbox c "fix the thing"     # pushes to your fork
+gitbox o "Fix the thing"     # PR opens on your fork against the fork's base branch
+```
+
+### Contributing to Upstream
+
+When work is ready to propose to the upstream maintainers, pass `-Upstream` to `o`:
+
+```powershell
+gitbox o "Fix the thing" -Upstream
+# opens a cross-fork PR: upstream-owner/repo ← yourfork:feat/my-fix
+```
+
+Without `-Upstream`, `gitbox o` always targets the fork. This prevents accidental upstream PRs.
+
+### Fork Guard
+
+If `Upstream` is set in `.gitbox.json` and `origin` is misconfigured to point at the upstream repo, `gitbox c` and `gitbox u` will refuse to push:
+
+```
+fork guard: origin points to upstream 'owner/repo' -- reconfigure origin to your fork
+```
+
+Correct by setting `origin` to your fork's URL and retrying.
 
 ## Orchestrator
 
@@ -164,12 +233,13 @@ gb lan<Tab>      # → land
 
 | Flag | Operation | Argument |
 |------|-------------|-----------|
+| `f` | Fork upstream, clone, and configure gitbox | `owner/repo` (optional; detected from remotes if omitted) |
 | `b` | Create branch from base | branch name |
 | `r` | Rename current branch | branch name |
 | `s` | Fetch and rebase onto base | — |
 | `c` | Stage all, commit, push | commit message (optional, prompts if absent) |
 | `u` | Push unpushed commits | — |
-| `o` | Open PR against base branch | PR title (optional, prompts or uses `--fill` if absent) |
+| `o` | Open PR against base branch. In fork mode, targets the fork by default; pass `-Upstream` to open a cross-fork PR to the upstream repo. | PR title (optional, prompts or uses `--fill` if absent) |
 | `x` | Report CI check results | — |
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
 </details>
@@ -228,6 +298,7 @@ Arguments are positional and consumed left to right by flags that need one.
 
 | Alias | Flags | Use Case |
 |------|-------|---------|
+| `fork` | `f` | Setting up a fork-based contribution workflow |
 | `start` | `b` | Beginning a new ticket from the base branch |
 | `rename` | `r` | Promoting a wip branch to a feature branch before opening a PR |
 | `sync` | `s` | Branch is behind base and needs to catch up before a PR |
