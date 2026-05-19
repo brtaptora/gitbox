@@ -1,5 +1,7 @@
 param(
-    [switch]$Force
+    [switch]$Force,
+    [switch]$DryRun,
+    [switch]$Quiet
 )
 
 . (Join-Path $PSScriptRoot 'g-registry.ps1')
@@ -48,7 +50,7 @@ if ($chain.Count -gt 0) {
     $children = @($allPRs | Where-Object { $_.baseRefName -eq $branch })
     if ($children.Count -eq 0) {
         Write-Host "unstack: branch '$branch' is not part of a stacked PR chain"
-        exit 1
+        exit 0
     }
     Get-StackOrder -Head $branch -Out $ordered
 }
@@ -58,12 +60,32 @@ if ($ordered.Count -eq 0) {
     exit 1
 }
 
-& (Join-Path $PSScriptRoot 'g-stack.ps1')
-Write-Host ""
+if ($ordered[0] -ne $branch) {
+    Write-Host "unstack: repositioning to bottom of stack: $($ordered[0])"
+    $coOut = git -C $repo checkout $ordered[0] 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  checkout failed: $($coOut -join ' ')"; exit 1
+    }
+    $branch = $ordered[0]
+}
+
+if (-not $Quiet) {
+    & (Join-Path $PSScriptRoot 'g-stack.ps1')
+    Write-Host ""
+}
 
 $n = $ordered.Count
-$labels = ($ordered | ForEach-Object { $headToPR[$_] | ForEach-Object { "#$($_.number) ($_)" } }) -join ' → '
+$labels = ($ordered | ForEach-Object { "#$($headToPR[$_].number) ($_)" }) -join ' → '
 Write-Host "unstack: will merge $n PR(s) in order: $labels"
+
+if ($DryRun) {
+    Write-Host "unstack: dry run — would merge $n PR(s) in order:"
+    foreach ($b in $ordered) {
+        $pr = $headToPR[$b]
+        Write-Host "  #$($pr.number) $b -> $($headToBase[$b])"
+    }
+    exit 0
+}
 
 if (-not $Force) {
     $isInteractive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
@@ -92,7 +114,7 @@ foreach ($b in $ordered) {
         exit 1
     }
 
-    Write-Host "unstack: $i/$n — checking out $b ..."
+    if (-not $Quiet) { Write-Host "unstack: $i/$n — checking out $b ..." }
     $coOut = git -C $repo checkout $b 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  checkout failed: $($coOut -join ' ')"
@@ -104,15 +126,15 @@ foreach ($b in $ordered) {
         exit 1
     }
 
-    Write-Host "unstack: $i/$n — checking CI for #$($pr.number) ..."
+    if (-not $Quiet) { Write-Host "unstack: $i/$n — checking CI for #$($pr.number) ..." }
     & (Join-Path $PSScriptRoot 'g-pr-checks.ps1')
     if ($LASTEXITCODE -ne 0) {
         Write-Host "unstack: $i/$n — CI failed for #$($pr.number) ($b); halting"
         exit 1
     }
 
-    Write-Host "unstack: $i/$n — merging #$($pr.number) ($b) ..."
-    & (Join-Path $PSScriptRoot 'g-merge-rotate.ps1')
+    if (-not $Quiet) { Write-Host "unstack: $i/$n — merging #$($pr.number) ($b) ..." }
+    & (Join-Path $PSScriptRoot 'g-merge-rotate.ps1') -SuppressWipWarning
     if ($LASTEXITCODE -ne 0) {
         Write-Host "unstack: $i/$n — merge failed for #$($pr.number) ($b); halting"
         exit 1

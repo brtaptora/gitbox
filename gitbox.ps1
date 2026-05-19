@@ -35,6 +35,7 @@ function Show-GitboxHelp {
     Write-Host ""
     Write-Host "  ${_b}${_yw}FLAGS${_rs}  ${_d}mutating, run in pipeline order${_rs}"
     @(
+        'f|fork-setup|[owner/repo]|Fork upstream, clone, and configure gitbox'
         'b|branch-create|<name>|Create a feature branch from base'
         'r|branch-rename|<name>|Rename current branch'
         's|branch-sync||Fetch and rebase onto base'
@@ -74,6 +75,7 @@ function Show-GitboxHelp {
     Write-Host ""
     Write-Host "  ${_b}${_yw}WORKFLOWS${_rs}"
     @(
+        'fork|f|Set up a fork-based contribution workflow'
         'start|b|Beginning a new ticket from the base branch'
         'rename|r|Promoting a wip branch before opening a PR'
         'sync|s|Branch is behind base'
@@ -122,18 +124,19 @@ if ($Spec -in @('--version', 'version')) {
 
 # Case-sensitive: lowercase=mutating, uppercase=diagnostic; 's' and 'S' are distinct keys
 $FlagMap = [System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)
+$FlagMap['f'] = @{ Script = 'g-fork-setup.ps1';     NeedsArg = 'optional' }
 $FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true;  Force = $true; Switches = @('Stack') }
 $FlagMap['r'] = @{ Script = 'g-branch-rename.ps1';  NeedsArg = $true  }
 $FlagMap['s'] = @{ Script = 'g-branch-sync.ps1';    NeedsArg = $false }
 $FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = 'optional'; Switches = @('Amend') }
 $FlagMap['v'] = @{ Script = 'g-revert.ps1';         NeedsArg = 'optional' }
 $FlagMap['u'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
-$FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = 'optional'; Switches = @('Draft') }
+$FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = 'optional'; Switches = @('Draft','Upstream') }
 $FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
 $FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional'; Switches = @('Squash','Rebase') }
 $FlagMap['g'] = @{ Script = 'g-branch-base.ps1';    NeedsArg = $false; Switches = @('NoStashPop') }
 $FlagMap['k'] = @{ Script = 'g-branch-checkout.ps1'; NeedsArg = $true }
-$FlagMap['n'] = @{ Script = 'g-unstack.ps1';         NeedsArg = $false; Switches = @('Force') }
+$FlagMap['n'] = @{ Script = 'g-unstack.ps1';         NeedsArg = $false; Switches = @('Force','DryRun','Quiet') }
 $FlagMap['z'] = @{ Script = 'g-release.ps1';        NeedsArg = 'optional'; Switches = @('View') }
 $FlagMap['Q'] = @{ Script = 'g-status.ps1';         NeedsArg = $false }
 $FlagMap['S'] = @{ Script = 'g-matrix-scan.ps1';    NeedsArg = $false }
@@ -142,13 +145,13 @@ $FlagMap['C'] = @{ Script = 'g-capabilities.ps1';   NeedsArg = $false }
 $FlagMap['W'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['O'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['H'] = @{ Script = 'g-health.ps1';         NeedsArg = $false }
-$FlagMap['L'] = @{ Script = 'g-log.ps1';            NeedsArg = $false }
+$FlagMap['L'] = @{ Script = 'g-log.ps1';            NeedsArg = $false; Switches = @('Full') }
 $FlagMap['D'] = @{ Script = 'g-diff.ps1';           NeedsArg = $false }
 $FlagMap['P'] = @{ Script = 'g-pr-view.ps1';        NeedsArg = $false }
 $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 $FlagMap['T'] = @{ Script = 'g-stack.ps1';          NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('b','r','s','c','v','u','o','x','m','g','k','n','z','H','Q','L','D','P','S','B','C','W','O','X','T')
+$CanonicalOrder = [string[]]@('f','b','r','s','c','v','u','o','x','m','g','k','n','z','H','Q','L','D','P','S','B','C','W','O','X','T')
 
 # Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) {
@@ -195,13 +198,15 @@ if ($argCount -lt $argSteps.Count) {
 }
 
 # --- Execute mutating steps ---
+$DryRun      = $false
 $argQueue    = [System.Collections.Generic.Queue[string]]::new()
 $restSwitches = @{}
 if ($PipelineArg) { $argQueue.Enqueue($PipelineArg) }
 if ($Rest) {
     foreach ($a in $Rest) {
-        if ("$a" -match '^-([A-Za-z]\w*)$') { $restSwitches[$Matches[1]] = $true }
-        else { $argQueue.Enqueue($a) }
+        if ("$a" -eq '--dry-run')              { $DryRun = $true }
+        elseif ("$a" -match '^-([A-Za-z]\w*)$') { $restSwitches[$Matches[1]] = $true }
+        else                                    { $argQueue.Enqueue($a) }
     }
 }
 
@@ -287,9 +292,17 @@ while ($i -lt $mutating.Count) {
 
     if ($skipFlags.ContainsKey($flag) -and $skipFlags[$flag]) {
         Write-Host "${_d}  skip $flag ($name): $($skipReasons[$flag])${_rs}"
+        if ($step.Info.NeedsArg -eq $true -and $argQueue.Count -gt 0) { [void]$argQueue.Dequeue() }
         $ran.Add($flag)
         $i++
         continue
+    }
+
+    if ($DryRun) {
+        $dryArg = if ($step.Info.NeedsArg -eq $true -and $argQueue.Count -gt 0) { " with arg: '$($argQueue.Peek())'" } else { '' }
+        Write-Host "  dry-run: would run $flag ($name)$dryArg"
+        if ($step.Info.NeedsArg -eq $true -and $argQueue.Count -gt 0) { [void]$argQueue.Dequeue() }
+        $ran.Add($flag); $i++; continue
     }
 
     $forceArg    = if ($step.Info.Force) { @{ Force = $true } } else { @{} }

@@ -82,7 +82,8 @@ if (-not $Version) {
 }
 
 if (git tag --list $resolved 2>$null) {
-    Write-Host "tag '$resolved' already exists -- use a different version or: gitbox z -View to list existing tags"
+    $next = Resolve-NextVersion -Arg 'patch'
+    Write-Host "tag '$resolved' already exists -- try: gitbox gz $next"
     exit 1
 }
 

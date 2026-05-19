@@ -25,9 +25,14 @@ try {
     }
 } catch { }
 
+$parentCount = (git -C $repo cat-file -p $resolved 2>$null |
+    Where-Object { $_ -match '^parent ' } | Measure-Object).Count
+$mFlag = if ($parentCount -gt 1) { @('-m', '1') } else { @() }
+if ($parentCount -gt 1) { Write-Host "  (merge commit: using -m 1 mainline parent)" }
+
 Write-Host "reverting $shortHash ..."
 if ($customMessage) {
-    $revertOut = git -C $repo revert $target --no-commit 2>&1
+    $revertOut = git -C $repo revert $target $mFlag --no-commit 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "revert failed"
         $revertOut | ForEach-Object { Write-Host "  $_" }
@@ -40,7 +45,7 @@ if ($customMessage) {
         exit 1
     }
 } else {
-    $revertOut = git -C $repo revert $target --no-edit 2>&1
+    $revertOut = git -C $repo revert $target $mFlag --no-edit 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "revert failed"
         $revertOut | ForEach-Object { Write-Host "  $_" }

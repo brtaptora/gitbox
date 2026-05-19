@@ -3,6 +3,8 @@ param(
     [string]$Name
 )
 
+. (Join-Path $PSScriptRoot 'g-registry.ps1')
+
 process {
     $repo = Get-Location
 
@@ -11,6 +13,11 @@ process {
 
     if ($Name -notmatch '^[a-zA-Z0-9][a-zA-Z0-9/_\-\.]*$') {
         Write-Host "invalid branch name: $Name"; exit 1
+    }
+
+    $cfg = Get-GitboxConfig -RepoPath $repo
+    if ($oldName -eq $cfg.BaseBranch) {
+        Write-Host "rename-abort: cannot rename base branch '$oldName'"; exit 1
     }
 
     if ($oldName -notlike 'wip/*') {
