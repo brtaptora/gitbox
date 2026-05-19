@@ -49,6 +49,21 @@ def list_items() -> None:
         print(f"[{mark}] {item['id']}.{pri_tag} {item['text']}")
 
 
+def search(query: str, priority: str | None = None) -> None:
+    items = load()
+    matches = [i for i in items if query.lower() in i["text"].lower()]
+    if priority is not None:
+        matches = [i for i in matches if i.get("priority", "normal") == priority]
+    if not matches:
+        print(f"no matches for: {query}" + (f" [{priority}]" if priority else ""))
+        return
+    for item in matches:
+        mark = "x" if item["done"] else " "
+        pri = item.get("priority", "normal")
+        pri_tag = f" [{pri}]" if pri != "normal" else ""
+        print(f"[{mark}] {item['id']}.{pri_tag} {item['text']}")
+
+
 def delete(item_id: int) -> None:
     items = load()
     before = len(items)
@@ -64,6 +79,7 @@ USAGE = """todo <command> [args]
   add <text> [priority]   add a todo item (priority: low, normal, high)
   done <id>               mark item done
   list                    list all items
+  search <query> [priority]  search items by text, optionally filter by priority
   delete <id>             remove item
 """
 
@@ -82,6 +98,10 @@ def main() -> None:
         done(int(args[1]))
     elif cmd == "list":
         list_items()
+    elif cmd == "search" and len(args) > 1:
+        pri_filter = args[-1] if args[-1] in ("low", "normal", "high") else None
+        query_args = args[1:-1] if pri_filter else args[1:]
+        search(" ".join(query_args), pri_filter)
     elif cmd == "delete" and len(args) == 2:
         delete(int(args[1]))
     else:
