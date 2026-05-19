@@ -86,6 +86,34 @@ git --version
 gh auth status
 ```
 
+## Install As Module
+
+**From PSGallery (recommended):**
+
+```powershell
+Install-Module gitbox
+```
+
+Then add to your `$PROFILE` so it loads automatically each session:
+
+```powershell
+Add-Content $PROFILE "`nImport-Module gitbox"
+```
+
+To update from PSGallery:
+
+```powershell
+Update-Module -Name gitbox
+```
+
+**From source:**
+
+```powershell
+Import-Module .\gitbox.psd1
+```
+
+Each script has a `g-` alias and a verb-noun function name. Either form works after import. The module also exports `gitbox` and `gb` as aliases for the orchestrator, and registers tab completion for both.
+
 ## Configuration
 
 Place `.gitbox.json` in the repo root to declare the branch topology for that repo:
@@ -111,7 +139,7 @@ When no config file exists all fields fall back to defaults. Omit the file entir
 
 ## Fork Workflow
 
-Fork mode is for contributors who do not have direct push access to a repository. All commits land on a personal fork; PRs target the upstream repo only when explicitly requested.
+Fork mode is for contributors who do not have direct push access to a repository. All commits land on a personal fork. PRs target the upstream repo only when explicitly requested.
 
 ### Setup
 
@@ -170,28 +198,6 @@ fork guard: origin points to upstream 'owner/repo' -- reconfigure origin to your
 ```
 
 Correct by setting `origin` to your fork's URL and retrying.
-
-## Install As Module
-
-**From PSGallery (recommended):**
-
-```powershell
-Install-Module gitbox
-```
-
-Then add to your `$PROFILE` so it loads automatically each session:
-
-```powershell
-Add-Content $PROFILE "`nImport-Module gitbox"
-```
-
-**From source:**
-
-```powershell
-Import-Module .\gitbox.psd1
-```
-
-Each script has a `g-` alias and a verb-noun function name. Either form works after import. The module also exports `gitbox` and `gb` as aliases for the orchestrator, and registers tab completion for both.
 
 ## Orchestrator
 
