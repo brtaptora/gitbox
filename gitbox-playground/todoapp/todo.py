@@ -49,6 +49,19 @@ def list_items() -> None:
         print(f"[{mark}] {item['id']}.{pri_tag} {item['text']}")
 
 
+def search(query: str) -> None:
+    items = load()
+    matches = [i for i in items if query.lower() in i["text"].lower()]
+    if not matches:
+        print(f"no matches for: {query}")
+        return
+    for item in matches:
+        mark = "x" if item["done"] else " "
+        pri = item.get("priority", "normal")
+        pri_tag = f" [{pri}]" if pri != "normal" else ""
+        print(f"[{mark}] {item['id']}.{pri_tag} {item['text']}")
+
+
 def delete(item_id: int) -> None:
     items = load()
     before = len(items)
@@ -64,6 +77,7 @@ USAGE = """todo <command> [args]
   add <text> [priority]   add a todo item (priority: low, normal, high)
   done <id>               mark item done
   list                    list all items
+  search <query>          search items by text
   delete <id>             remove item
 """
 
@@ -82,6 +96,8 @@ def main() -> None:
         done(int(args[1]))
     elif cmd == "list":
         list_items()
+    elif cmd == "search" and len(args) > 1:
+        search(" ".join(args[1:]))
     elif cmd == "delete" and len(args) == 2:
         delete(int(args[1]))
     else:
