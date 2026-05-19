@@ -4,7 +4,8 @@ param(
 
     [string]$Body = "",
     [string]$Base = "",
-    [switch]$Draft
+    [switch]$Draft,
+    [switch]$Upstream
 )
 
 begin {
@@ -21,9 +22,19 @@ process {
 
     $repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
     $branch     = git -C $repo branch --show-current 2>$null
-    $baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
+    $cfg        = Get-GitboxConfig -RepoPath $repo
+    $baseBranch = $cfg.BaseBranch
 
-    $existing = gh pr list --repo $repoName --head $branch --json number,url 2>$null | ConvertFrom-Json
+    # Fork mode: -Upstream opens a cross-fork PR to the upstream repo
+    $upstreamRepo = $null; $forkOwner = $null; $prHead = $branch
+    if ($Upstream -and $cfg.Upstream) {
+        $upstreamRepo = $cfg.Upstream
+        $forkOwner    = gh api user -q .login 2>$null
+        $prHead       = if ($forkOwner) { "${forkOwner}:${branch}" } else { $branch }
+    }
+    $prRepo = if ($upstreamRepo) { $upstreamRepo } else { $repoName }
+
+    $existing = gh pr list --repo $prRepo --head $prHead --json number,url 2>$null | ConvertFrom-Json
     if ($existing -and $existing.Count -gt 0) {
         Write-Host "PR #$($existing[0].number) already open |$($existing[0].url)"
         exit 0
@@ -55,7 +66,7 @@ process {
 
     # Auto-detect stack parent: find the open PR branch that is the closest git ancestor of HEAD
     if (-not $Base) {
-        $allOpenPRs = gh pr list --repo $repoName --state open --json headRefName 2>$null | ConvertFrom-Json
+        $allOpenPRs = gh pr list --repo $prRepo --state open --json headRefName 2>$null | ConvertFrom-Json
         if ($allOpenPRs) {
             $bestParent = $null; $bestCount = [int]::MaxValue
             foreach ($c in $allOpenPRs) {
@@ -74,17 +85,18 @@ process {
     $draftFlag = if ($Draft) { '--draft' } else { $null }
 
     if ($Draft) {
-        $stackedPRs = gh pr list --repo $repoName --base $branch --state open --json number 2>$null | ConvertFrom-Json
+        $stackedPRs = gh pr list --repo $prRepo --base $branch --state open --json number 2>$null | ConvertFrom-Json
         if ($stackedPRs -and $stackedPRs.Count -gt 0) {
             Write-Host "  warning: $($stackedPRs.Count) PR(s) target '$branch' -- opening as draft blocks 'gitbox n' from merging them"
         }
     }
 
+    $headArgs = if ($upstreamRepo) { @('--head', $prHead) } else { @() }
     Write-Host "opening PR ..."
     $url = if ($Title) {
-        gh pr create --repo $repoName --title $Title --base $target --body $Body @(if ($draftFlag) { $draftFlag }) 2>&1
+        gh pr create --repo $prRepo --title $Title --base $target --body $Body @headArgs @(if ($draftFlag) { $draftFlag }) 2>&1
     } else {
-        gh pr create --repo $repoName --fill --base $target @(if ($draftFlag) { $draftFlag }) 2>&1
+        gh pr create --repo $prRepo --fill --base $target @headArgs @(if ($draftFlag) { $draftFlag }) 2>&1
     }
     if ($LASTEXITCODE -ne 0) { Write-Host "pr create failed"; $url | ForEach-Object { Write-Host "  $_" }; exit 1 }
     $number = $url -replace ".*/pull/", ""

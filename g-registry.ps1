@@ -9,6 +9,8 @@ $GapRequirements = @{
 
 # [ordered] so specific patterns match before generic subsets (e.g. BRANCH_CREATE before CHECKOUT)
 $CapabilityPatterns = [ordered]@{
+    FORK          = 'gh\b.+repo\s+fork\b'
+    CLONE         = 'git\b.+clone\b'
     BRANCH_CREATE = 'git\b.+checkout\b.+-b\b'
     PUSH_DELETE   = 'git\b.+push\b.+--delete\b'
     BRANCH_RENAME = 'git\b.+branch\b.+-m\b'
@@ -61,6 +63,7 @@ function Get-ScriptCapabilities {
 }
 
 $FlagScripts = @{
+    f = 'g-fork-setup.ps1'
     b = 'g-branch-create.ps1'
     r = 'g-branch-rename.ps1'
     s = 'g-branch-sync.ps1'
@@ -87,6 +90,7 @@ foreach ($caps in $FlagCapabilities.Values) {
 
 # Named flag sequences for the gitbox orchestrator
 $WorkflowRegistry = [ordered]@{
+    fork    = 'f'
     start   = 'b'
     rename  = 'r'
     sync    = 's'
@@ -114,7 +118,7 @@ $WorkflowRegistry = [ordered]@{
 function Get-GitboxConfig {
     param([string]$RepoPath = (Get-Location))
     $cfgPath = Join-Path $RepoPath '.gitbox.json'
-    $base = $null; $default = $null; $mergeStrategy = $null; $editor = $null; $postMerge = $null
+    $base = $null; $default = $null; $mergeStrategy = $null; $editor = $null; $postMerge = $null; $upstream = $null
     if (Test-Path $cfgPath) {
         $cfg     = Get-Content $cfgPath -Raw | ConvertFrom-Json
         $base    = $cfg.BaseBranch
@@ -122,6 +126,7 @@ function Get-GitboxConfig {
         if ($cfg.MergeStrategy)     { $mergeStrategy = $cfg.MergeStrategy.ToLower() }
         if ($null -ne $cfg.Editor)  { $editor        = [bool]$cfg.Editor }
         if ($cfg.PostMerge)         { $postMerge     = $cfg.PostMerge.ToLower() }
+        if ($cfg.Upstream)          { $upstream      = $cfg.Upstream }
     } else {
         $default       = gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>$null
         if (-not $default) { $default = 'main' }
@@ -135,7 +140,7 @@ function Get-GitboxConfig {
     if ($null -eq $mergeStrategy)  { $mergeStrategy = 'merge' }
     if ($null -eq $editor)         { $editor        = $false }
     if ($null -eq $postMerge)      { $postMerge     = 'wip' }
-    return @{ BaseBranch = $base; DefaultBranch = $default; MergeStrategy = $mergeStrategy; Editor = $editor; PostMerge = $postMerge }
+    return @{ BaseBranch = $base; DefaultBranch = $default; MergeStrategy = $mergeStrategy; Editor = $editor; PostMerge = $postMerge; Upstream = $upstream }
 }
 
 function Invoke-GitboxEditor {
@@ -175,7 +180,9 @@ function Get-GitRepoState {
     $branch = git -C $RepoPath branch --show-current 2>$null
     if (-not $branch) { return $null }
 
-    $baseBranch = (Get-GitboxConfig -RepoPath $RepoPath).BaseBranch
+    $cfg        = Get-GitboxConfig -RepoPath $RepoPath
+    $baseBranch = $cfg.BaseBranch
+    $upstream   = $cfg.Upstream
     $repoName   = if (-not $GitOnly) { gh repo view --json nameWithOwner -q .nameWithOwner 2>$null } else { $null }
 
     $ahead = 0; $behind = 0
@@ -206,6 +213,7 @@ function Get-GitRepoState {
         Branch       = $branch
         BaseBranch   = $baseBranch
         RepoName     = $repoName
+        Upstream     = $upstream
         Ahead        = $ahead
         Behind       = $behind
         DirtyFiles   = $dirtyFiles
