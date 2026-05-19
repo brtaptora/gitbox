@@ -1,3 +1,6 @@
+[CmdletBinding()]
+param()
+
 . (Join-Path $PSScriptRoot 'g-registry.ps1')
 
 $repo = Get-Location
@@ -11,11 +14,10 @@ if ($branch -eq $baseBranch) {
     Write-Host "already on base branch; run: git pull origin $baseBranch"; exit 1
 }
 
-Write-Host "fetching origin/$baseBranch ..."
 $fetchOut = git -C $repo fetch origin $baseBranch 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "fetch failed"
-    $fetchOut | ForEach-Object { Write-Host "  $_" }
+    if ($VerbosePreference -ne 'SilentlyContinue') { $fetchOut | ForEach-Object { Write-Host "  $_" } }
     exit 1
 }
 
@@ -30,7 +32,7 @@ if (@(git -C $repo status --porcelain 2>$null | Where-Object { $_ }).Count -gt 0
     $stashOut = git -C $repo stash push -m 'gitbox-sync' 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "stash failed"
-        $stashOut | ForEach-Object { Write-Host "  $_" }
+        if ($VerbosePreference -ne 'SilentlyContinue') { $stashOut | ForEach-Object { Write-Host "  $_" } }
         exit 1
     }
     $stashed = $true
@@ -39,7 +41,7 @@ if (@(git -C $repo status --porcelain 2>$null | Where-Object { $_ }).Count -gt 0
 $rebaseOut = git -C $repo rebase "origin/$baseBranch" 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "rebase conflict: resolve manually then run: git rebase --continue"
-    $rebaseOut | ForEach-Object { Write-Host "  $_" }
+    if ($VerbosePreference -ne 'SilentlyContinue') { $rebaseOut | ForEach-Object { Write-Host "  $_" } }
     git -C $repo rebase --abort 2>$null | Out-Null
     Write-Host "rebase aborted; working tree restored"
     if ($stashed) { git -C $repo stash pop 2>$null | Out-Null }
@@ -50,7 +52,7 @@ if ($stashed) {
     $popOut = git -C $repo stash pop 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "warning: stash pop after rebase failed -- run: git stash pop"
-        $popOut | ForEach-Object { Write-Host "  $_" }
+        if ($VerbosePreference -ne 'SilentlyContinue') { $popOut | ForEach-Object { Write-Host "  $_" } }
     }
 }
 

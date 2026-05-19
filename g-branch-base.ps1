@@ -1,3 +1,4 @@
+[CmdletBinding()]
 param([switch]$NoStashPop)
 
 . (Join-Path $PSScriptRoot 'g-registry.ps1')
@@ -19,7 +20,7 @@ if (@(git -C $repo status --porcelain 2>$null | Where-Object { $_ }).Count -gt 0
     $stashOut = git -C $repo stash push -m 'gitbox-base' 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "stash failed"
-        $stashOut | ForEach-Object { Write-Host "  $_" }
+        if ($VerbosePreference -ne 'SilentlyContinue') { $stashOut | ForEach-Object { Write-Host "  $_" } }
         exit 1
     }
     $stashed = $true
@@ -28,7 +29,7 @@ if (@(git -C $repo status --porcelain 2>$null | Where-Object { $_ }).Count -gt 0
 $coOut = git -C $repo checkout $baseBranch 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "checkout $baseBranch failed"
-    $coOut | ForEach-Object { Write-Host "  $_" }
+    if ($VerbosePreference -ne 'SilentlyContinue') { $coOut | ForEach-Object { Write-Host "  $_" } }
     if ($stashed) { git -C $repo stash pop 2>$null | Out-Null }
     exit 1
 }
@@ -36,7 +37,7 @@ if ($LASTEXITCODE -ne 0) {
 $pullOut = git -C $repo pull origin $baseBranch 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "pull $baseBranch failed"
-    $pullOut | ForEach-Object { Write-Host "  $_" }
+    if ($VerbosePreference -ne 'SilentlyContinue') { $pullOut | ForEach-Object { Write-Host "  $_" } }
     if ($stashed) { git -C $repo stash pop 2>$null | Out-Null }
     exit 1
 }
@@ -48,7 +49,7 @@ if ($stashed) {
         $popOut = git -C $repo stash pop 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "warning: stash pop failed -- run: git stash pop"
-            $popOut | ForEach-Object { Write-Host "  $_" }
+            if ($VerbosePreference -ne 'SilentlyContinue') { $popOut | ForEach-Object { Write-Host "  $_" } }
         }
     }
 }

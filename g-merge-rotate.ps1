@@ -9,6 +9,11 @@ param(
 
 . (Join-Path $PSScriptRoot 'g-registry.ps1')
 
+if ($Name -and $Name -notmatch '^[a-zA-Z0-9][a-zA-Z0-9/_\-\.]*$') {
+    Write-Host "  note: '$Name' is not a valid branch name -- using auto-generated wip name"
+    $Name = $null
+}
+
 $repo = Get-Location
 
 $remote = git -C $repo remote get-url origin 2>$null
@@ -49,7 +54,7 @@ if ($downstreamJson -and $downstreamJson.Count -gt 0) {
         $coOut = git -C $repo checkout $dBranch 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "  error: cannot checkout $dBranch"
-            $coOut | ForEach-Object { Write-Host "    $_" }
+            if ($VerbosePreference -ne 'SilentlyContinue') { $coOut | ForEach-Object { Write-Host "    $_" } }
             git -C $repo checkout $branch 2>$null | Out-Null
             exit 1
         }
@@ -57,7 +62,7 @@ if ($downstreamJson -and $downstreamJson.Count -gt 0) {
         $rbOut = git -C $repo rebase --onto "origin/$baseBranch" "origin/$branch" 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "  rebase conflict on $dBranch -- resolve and retry (git rebase --continue)"
-            $rbOut | ForEach-Object { Write-Host "    $_" }
+            if ($VerbosePreference -ne 'SilentlyContinue') { $rbOut | ForEach-Object { Write-Host "    $_" } }
             git -C $repo rebase --abort 2>$null | Out-Null
             git -C $repo checkout $branch 2>$null | Out-Null
             exit 1
@@ -66,7 +71,7 @@ if ($downstreamJson -and $downstreamJson.Count -gt 0) {
         $pushOut = git -C $repo push origin $dBranch --force-with-lease 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "  push failed for $dBranch (upstream diverged -- pull and retry)"
-            $pushOut | ForEach-Object { Write-Host "    $_" }
+            if ($VerbosePreference -ne 'SilentlyContinue') { $pushOut | ForEach-Object { Write-Host "    $_" } }
             git -C $repo checkout $branch 2>$null | Out-Null
             exit 1
         }
@@ -89,20 +94,19 @@ else {
     if ($cfgStrategy -eq 'squash') { $mergeFlag = '--squash' }
     elseif ($cfgStrategy -eq 'rebase') { $mergeFlag = '--rebase' }
 }
-Write-Host "merging #$prNumber ..."
 $mergeOut = gh pr merge $prNumber --repo $repoName $mergeFlag 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "merge failed: PR #$prNumber not merged; branch '$branch' preserved"
-    $mergeOut | ForEach-Object { Write-Host "  $_" }
+    if ($VerbosePreference -ne 'SilentlyContinue') { $mergeOut | ForEach-Object { Write-Host "  $_" } }
     exit 1
 }
 if (2 -ge $Steps) { exit 0 }
 
 # Step 3: switch to base branch and pull
 $checkoutOut = git -C $repo checkout $baseBranch 2>&1
-if ($LASTEXITCODE -ne 0) { Write-Host "checkout $baseBranch failed"; $checkoutOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+if ($LASTEXITCODE -ne 0) { Write-Host "checkout $baseBranch failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $checkoutOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
 $pullOut = git -C $repo pull origin $baseBranch 2>&1
-if ($LASTEXITCODE -ne 0) { Write-Host "pull origin/$baseBranch failed"; $pullOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+if ($LASTEXITCODE -ne 0) { Write-Host "pull origin/$baseBranch failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $pullOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
 if (3 -ge $Steps) { exit 0 }
 
 # Step 4: delete remote branch (GitHub may already have deleted it on merge)
@@ -120,15 +124,15 @@ $postMerge = (Get-GitboxConfig -RepoPath $repo).PostMerge
 
 if ($postMerge -eq 'base') {
     $coOut = git -C $repo checkout $baseBranch 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Host "checkout $baseBranch failed"; $coOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Host "checkout $baseBranch failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $coOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
     $pullOut = git -C $repo pull origin $baseBranch 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Host "pull origin/$baseBranch failed"; $pullOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Host "pull origin/$baseBranch failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $pullOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
     Write-Host "merged #$prNumber |deleted $branch |on $baseBranch"
 } elseif ($postMerge -eq 'stack' -and $downstreamJson -and $downstreamJson.Count -gt 0) {
     $nextBranch = $downstreamJson[0].headRefName
     git -C $repo fetch origin "${nextBranch}:${nextBranch}" 2>$null | Out-Null
     $coOut = git -C $repo checkout $nextBranch 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Host "checkout $nextBranch failed"; $coOut | ForEach-Object { Write-Host "  $_" }; exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Host "checkout $nextBranch failed"; if ($VerbosePreference -ne 'SilentlyContinue') { $coOut | ForEach-Object { Write-Host "  $_" } }; exit 1 }
     Write-Host "merged #$prNumber |deleted $branch |on $nextBranch"
 } else {
     $newBranch = if ($Name) { $Name } else { "wip/$(Get-Date -Format 'MMdd-HHmmss')" }
@@ -138,7 +142,7 @@ if ($postMerge -eq 'base') {
             Write-Host "  wip branch '$newBranch' already exists -- run: git branch -d $newBranch"
         } else {
             Write-Host "checkout -b $newBranch failed"
-            $newBranchOut | ForEach-Object { Write-Host "  $_" }
+            if ($VerbosePreference -ne 'SilentlyContinue') { $newBranchOut | ForEach-Object { Write-Host "  $_" } }
         }
         exit 1
     }

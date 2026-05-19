@@ -30,8 +30,8 @@ function Show-GitboxHelp {
     Write-Host "  ${_b}${_cy}gitbox${_rs}  git workflow automation"
     Write-Host ""
     Write-Host "  ${_b}${_yw}USAGE${_rs}"
-    Write-Host "    gitbox ${_cy}<flags|workflow>${_rs} [args] [-AllowWip]"
-    Write-Host "    gb     ${_cy}<flags|workflow>${_rs} [args] [-AllowWip]"
+    Write-Host "    gitbox ${_cy}<flags|workflow>${_rs} [args] [-AllowWip] [--verbose] [--dry-run]"
+    Write-Host "    gb     ${_cy}<flags|workflow>${_rs} [args] [-AllowWip] [--verbose] [--dry-run]"
     Write-Host ""
     Write-Host "  ${_b}${_yw}FLAGS${_rs}  ${_d}mutating, run in pipeline order${_rs}"
     @(
@@ -128,7 +128,7 @@ $FlagMap['f'] = @{ Script = 'g-fork-setup.ps1';     NeedsArg = 'optional' }
 $FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true;  Force = $true; Switches = @('Stack') }
 $FlagMap['r'] = @{ Script = 'g-branch-rename.ps1';  NeedsArg = $true  }
 $FlagMap['s'] = @{ Script = 'g-branch-sync.ps1';    NeedsArg = $false }
-$FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = 'optional'; Switches = @('Amend') }
+$FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = 'optional'; Switches = @('Amend'); ValueParams = @('Include','Exclude') }
 $FlagMap['v'] = @{ Script = 'g-revert.ps1';         NeedsArg = 'optional' }
 $FlagMap['u'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
 $FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = 'optional'; Switches = @('Draft','Upstream') }
@@ -199,14 +199,31 @@ if ($argCount -lt $argSteps.Count) {
 
 # --- Execute mutating steps ---
 $DryRun      = $false
+$Verbose     = $false
 $argQueue    = [System.Collections.Generic.Queue[string]]::new()
 $restSwitches = @{}
+$paramValues  = @{}
 if ($PipelineArg) { $argQueue.Enqueue($PipelineArg) }
 if ($Rest) {
-    foreach ($a in $Rest) {
-        if ("$a" -eq '--dry-run')              { $DryRun = $true }
-        elseif ("$a" -match '^-([A-Za-z]\w*)$') { $restSwitches[$Matches[1]] = $true }
-        else                                    { $argQueue.Enqueue($a) }
+    $restArr = @($Rest)
+    $ri = 0
+    while ($ri -lt $restArr.Count) {
+        $a = $restArr[$ri]
+        if ("$a" -eq '--dry-run')    { $DryRun = $true; $ri++ }
+        elseif ("$a" -eq '--verbose') { $Verbose = $true; $ri++ }
+        elseif ("$a" -match '^-([A-Za-z]\w*)$') {
+            $key = $Matches[1]
+            # Consume following token as value if it exists and is not itself a flag
+            if ($ri+1 -lt $restArr.Count -and "$($restArr[$ri+1])" -notmatch '^-') {
+                $restSwitches[$key] = $true
+                $paramValues[$key]  = $restArr[$ri+1]
+                $ri += 2
+            } else {
+                $restSwitches[$key] = $true
+                $ri++
+            }
+        }
+        else { $argQueue.Enqueue($a); $ri++ }
     }
 }
 
@@ -247,6 +264,9 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
         $skipFlags['b'] = ($hClass -eq 'F') -and (-not $restSwitches.ContainsKey('Stack'))
         $skipFlags['r'] = ($hClass -ne 'W') -and ($mutating.Count -gt 1)
         $skipFlags['c'] = ($hDirty -eq 'c')
+        if ($skipFlags['c'] -and ($steps | Where-Object { $_.Flag -eq 'm' })) {
+            Write-Host "${_yw}  note: c skipped (clean tree) -- m will merge the open PR; use: gitbox ship${_rs}"
+        }
         $skipFlags['u'] = ($hPush  -eq 'P')
         $skipFlags['o'] = ($hPR -in @('PRO','PRA'))
         $skipFlags['x'] = ($hPR -in @('PRO','PRA'))
@@ -307,9 +327,15 @@ while ($i -lt $mutating.Count) {
 
     $forceArg    = if ($step.Info.Force) { @{ Force = $true } } else { @{} }
     $stepSwitches = @{}
+    if ($Verbose) { $stepSwitches['Verbose'] = $true }
     if ($step.Info.Switches) {
         foreach ($sw in $step.Info.Switches) {
             if ($restSwitches.ContainsKey($sw)) { $stepSwitches[$sw] = $true }
+        }
+    }
+    if ($step.Info.ValueParams) {
+        foreach ($vp in $step.Info.ValueParams) {
+            if ($paramValues.ContainsKey($vp)) { $stepSwitches[$vp] = $paramValues[$vp] }
         }
     }
     # g followed by z: stash must not be popped onto base — preserve it for the feature branch
@@ -317,7 +343,7 @@ while ($i -lt $mutating.Count) {
         $stepSwitches['NoStashPop'] = $true
     }
     $splatArgs = $forceArg + $stepSwitches
-    $stepLines = [System.Collections.Generic.List[string]]::new()
+    $spin = Start-Spinner $name
     if ($step.Info.NeedsArg -eq $true) {
         $rawOut = $argQueue.Dequeue() | & $script @splatArgs 6>&1
     } elseif ($step.Info.NeedsArg -eq 'optional' -and $argQueue.Count -gt 0) {
@@ -325,9 +351,15 @@ while ($i -lt $mutating.Count) {
     } else {
         $rawOut = & $script @splatArgs 6>&1
     }
-    $rawOut | ForEach-Object { Write-Host "$_"; [void]$stepLines.Add("$_") }
-
     $stepExit = $LASTEXITCODE
+    Stop-Spinner $spin
+    $stepLines = [System.Collections.Generic.List[string]]::new()
+    if ($stepExit -eq 0) {
+        $rawOut | ForEach-Object { Write-Host "$_"; [void]$stepLines.Add("$_") }
+    } else {
+        $rawOut | ForEach-Object { Write-Host "${_d}$_${_rs}"; [void]$stepLines.Add("$_") }
+    }
+
     if ($stepExit -ne 0) {
         # Consult matrix-resolve; each recovered flag is added to $ran so it cannot be reused (loop guard)
         $recovered   = $false
@@ -341,7 +373,7 @@ while ($i -lt $mutating.Count) {
         if ($hashLine) {
             $r = Resolve-MatrixAction -Hash "$hashLine" -ErrorVector $errorVector
             if ($r -and $r.Action) {
-                Write-Host "${_yw}  matrix suggests: next: $($r.Action)${_rs}"
+                Write-Host "  ${_b}${_cy}→ next:${_rs} $($r.Action)"
                 if ($r.Action -match 'gitbox\s+([a-z]+)') {
                     $suggestion   = $Matches[1]
                     $recovFlagStr = if ($WorkflowRegistry.Contains($suggestion)) { $WorkflowRegistry[$suggestion] } else { $suggestion }
@@ -403,8 +435,16 @@ while ($i -lt $mutating.Count) {
         if (-not $recovered) {
             $notRun    = @($mutating | Where-Object { $_.Flag -notin $ran.ToArray() -and $_.Flag -ne $flag }) | ForEach-Object { $_.Flag }
             $notRunStr = if ($notRun) { " |not run: $($notRun -join '')" } else { '' }
-            Write-Host "${_rd}gitbox $($Spec): step $flag ($name) failed${_rs}"
-            Write-Host "${_rd}halted at $flag$notRunStr${_rs}"
+            Write-Host ""
+            if ('g' -in $ran) {
+                $stashLine = git stash list --format='%s' 2>$null |
+                    Where-Object { $_ -match '^On (.+): gitbox-base$' } |
+                    Select-Object -First 1
+                if ($stashLine -match '^On (.+): gitbox-base$') {
+                    Write-Host "${_yw}  stash preserved -- run: gitbox k `"$($Matches[1])`" to return and restore work${_rs}"
+                }
+            }
+            Write-Host "${_rd}  ✗ $flag ($name) failed$notRunStr${_rs}"
             exit $stepExit
         }
         # $i intentionally not advanced — retry the failed step on next iteration
