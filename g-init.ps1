@@ -46,8 +46,11 @@ try {
 $editor = $editorAnswer -match '^[yY]$'
 $postMerge = Read-WithDefault "After merge, go to [wip/base/stack]" "wip"
 
+try { $upstreamAnswer = Read-Host "Upstream repo for fork mode (owner/name, Enter to skip)" } catch { $upstreamAnswer = '' }
+
 $cfg = [ordered]@{ BaseBranch = $baseBranch; MergeStrategy = $strategy.ToLower(); Editor = $editor; PostMerge = $postMerge.ToLower() }
 if ($defaultBranch -ne $baseBranch) { $cfg['DefaultBranch'] = $defaultBranch }
+if ($upstreamAnswer)                { $cfg['Upstream']       = $upstreamAnswer }
 
 $cfg | ConvertTo-Json | Set-Content $cfgPath -Encoding UTF8
 Write-Host "wrote .gitbox.json"

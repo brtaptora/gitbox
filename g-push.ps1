@@ -5,7 +5,16 @@ $repo = Get-Location
 $branch = git -C $repo branch --show-current 2>$null
 if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 
-$baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
+$cfg        = Get-GitboxConfig -RepoPath $repo
+$baseBranch = $cfg.BaseBranch
+
+if ($cfg.Upstream) {
+    $originUrl = git -C $repo remote get-url origin 2>$null
+    if ($originUrl -and $originUrl.Contains($cfg.Upstream)) {
+        Write-Host "fork guard: origin points to upstream '$($cfg.Upstream)' -- reconfigure origin to your fork"
+        exit 1
+    }
+}
 
 if ($branch -eq $baseBranch) {
     Write-Host "on base branch; g-push is for feature branches only"; exit 1
