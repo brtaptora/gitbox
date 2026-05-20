@@ -28,7 +28,9 @@ $CapabilityPatterns = [ordered]@{
     PR_MERGE      = 'gh\b.+pr\s+merge\b'
     PR_READY      = 'gh\b.+pr\s+ready\b'
     PR_CHECKS     = 'gh\b.+pr\s+checks\b'
-    PR_LIST       = 'gh\b.+pr\s+list\b'
+    PR_VIEW        = 'gh\b.+pr\s+view\b'
+    PR_LIST        = 'gh\b.+pr\s+list\b'
+    FETCH_UPSTREAM = 'git\b.+fetch\b.+upstream\b'
 }
 
 function Get-ScriptCapabilities {
@@ -109,8 +111,9 @@ $WorkflowRegistry = [ordered]@{
     land     = 'cxm'
     ship     = 'xm'
     full     = 'cuoxm'
-    release  = 'z'
-    health   = 'H'
+    release    = 'z'
+    'sync-fork' = 'e'
+    health     = 'H'
     status   = 'S'
     log      = 'L'
 }
@@ -188,7 +191,8 @@ function Get-GitRepoState {
     $repoName   = if (-not $GitOnly -and $originUrl) { ($originUrl -replace ".*github\.com[:/]", "") -replace "\.git$", "" } else { $null }
 
     $ahead = 0; $behind = 0
-    if (git -C $RepoPath rev-parse --verify "origin/$baseBranch" 2>$null) {
+    $baseRef = git -C $RepoPath rev-parse --verify "origin/$baseBranch" 2>$null
+    if ($baseRef) {
         $ahead  = (git -C $RepoPath rev-list "origin/${baseBranch}..HEAD" 2>$null | Measure-Object -Line).Lines
         $behind = (git -C $RepoPath rev-list "HEAD..origin/${baseBranch}" 2>$null | Measure-Object -Line).Lines
     }
