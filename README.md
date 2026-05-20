@@ -1,6 +1,6 @@
 # gitbox
 
-PowerShell git workflow suite. Works standalone (call `.ps1` files directly) or as a module (`Import-Module .\gitbox.psd1`).
+PowerShell git workflow suite. Install as a module to access the `gitbox` orchestrator and all `g-` aliases.
 
 ## Quick Start
 
@@ -112,7 +112,7 @@ Update-Module -Name gitbox
 Import-Module .\gitbox.psd1
 ```
 
-Each script has a `g-` alias and a verb-noun function name. Either form works after import. The module also exports `gitbox` and `gb` as aliases for the orchestrator, and registers tab completion for both.
+Each operation has a `g-` alias and a verb-noun function name; all are available after import. The `gitbox` orchestrator (and its `gb` alias) sequences them into pipelines and is the recommended entry point for all workflows.
 
 ## Configuration
 
@@ -192,6 +192,25 @@ gitbox o "Fix the thing" -Upstream
 
 Without `-Upstream`, `gitbox o` always targets the fork. This prevents accidental upstream PRs.
 
+### Keeping Your Fork Up to Date
+
+When the upstream repository advances, sync its base branch into your fork before starting or continuing work:
+
+```powershell
+gitbox sync-fork    # or: gitbox e
+# fetches upstream/<base>, merges into your local base, pushes to origin
+```
+
+This is equivalent to `git fetch upstream && git merge --ff-only upstream/<base> && git push origin <base>`. If your working tree is dirty or you are on a feature branch, `e` stashes, checks out base, syncs, pushes, returns to your branch, and pops the stash.
+
+To sync the upstream and then immediately rebase your feature branch on top:
+
+```powershell
+gitbox es    # e (sync upstream) + s (rebase current branch onto base)
+```
+
+`e` requires `Upstream` in `.gitbox.json`. If the upstream remote does not exist locally, `e` exits with an error and a setup hint.
+
 ### Fork Guard
 
 If `Upstream` is set in `.gitbox.json` and `origin` is misconfigured to point at the upstream repo, `gitbox c` and `gitbox u` will refuse to push:
@@ -239,11 +258,11 @@ gb lan<Tab>      # → land
 | `f` | Fork upstream, clone, and configure gitbox | `owner/repo` (optional; detected from remotes if omitted) |
 | `b` | Create branch from base | branch name |
 | `r` | Rename current branch | branch name |
+| `e` | Fetch upstream and fast-forward fork's base branch; requires `Upstream` in `.gitbox.json` | — |
 | `s` | Fetch and rebase onto base | — |
 | `c` | Stage all, commit, push | commit message (optional, prompts if absent) |
 | `u` | Push unpushed commits | — |
 | `o` | Open PR against base branch. In fork mode, targets the fork by default; pass `-Upstream` to open a cross-fork PR to the upstream repo. | PR title (optional, prompts or uses `--fill` if absent) |
-| `x` | Report CI check results | — |
 | `m` | Merge PR, delete branch, create next branch | branch name (optional) |
 </details>
 
@@ -316,6 +335,7 @@ Arguments are positional and consumed left to right by flags that need one.
 | `checkout` | `k` | Switch to any named branch with stash-and-pop |
 | `unstack` | `n` | Merge the full stacked PR chain bottom-to-top |
 | `stack` | `T` | Print the stacked PR chain for the current branch |
+| `sync-fork` | `e` | Fetch upstream and fast-forward fork's base branch; requires `Upstream` in `.gitbox.json` |
 | `health` | `H` | Auditing script coverage and gap analysis |
 </details>
 
@@ -412,7 +432,9 @@ gitbox W
 gitbox X
 ```
 
-## Raw Commands
+## Module API
+
+These are the individual commands exported by the module. All are available as `g-` aliases and verb-noun function names after import. For most workflows, prefer the `gitbox` orchestrator — these are useful when you need a single step in a script or pipeline.
 
 ### Branch
 <details>
@@ -423,6 +445,9 @@ gitbox X
 | `g-branch-create` | `New-GitBranch` | branch name via pipeline | Pull base, create and checkout feature branch |
 | `g-branch-rename` | `Rename-GitBranch` | branch name via pipeline | Rename current branch locally and on remote |
 | `g-branch-sync` | `Sync-GitBranch` | none | Fetch base and rebase current branch onto it |
+| `g-branch-checkout` | `Switch-GitBranch` | branch name via pipeline | Stash, checkout named branch, pop stash; no-op if already on that branch |
+| `g-branch-base` | `Switch-GitBaseBranch` | none | Stash, checkout base branch, pull, pop stash |
+| `g-fork-sync` | `Sync-GitFork` | none | Fetch upstream base, fast-forward fork's base, push to origin |
 </details>
 
 ### Commit and Push
@@ -443,6 +468,7 @@ gitbox X
 |-------|----------|-------|--------------|
 | `g-open-pr` | `New-GitPullRequest` | PR title via pipeline (`-Body` optional) | Open PR against base branch; exits 0 with existing PR URL if one is already open |
 | `g-pr-checks` | `Get-GitPullRequestChecks` | none | Summarise check results for current branch PR |
+| `g-pr-view` | `Show-GitPullRequest` | none | Show PR detail: title, state, review decision, check rollup |
 | `g-merge-rotate` | `Invoke-GitMergeRotate` | branch name (optional, via pipeline) | Merge PR, delete branch, create next branch (defaults to `wip/MMDD-HHmm`) |
 </details>
 
@@ -464,10 +490,10 @@ gitbox X
 
 ### Rebase Conflict
 
-`g-branch-sync` aborts automatically on conflict and restores the working tree. Resolve the conflict manually then continue:
+`gitbox s` aborts automatically on conflict and restores the working tree. Resolve the conflict manually then continue:
 
 ```powershell
-# after g-branch-sync reports "rebase conflict"
+# after gitbox s reports "rebase conflict"
 git status                   # see conflicted files
 # edit files to resolve conflicts
 git add <resolved-files>
@@ -476,30 +502,30 @@ git rebase --continue
 
 ### Secret Guard Block
 
-If `g-commit-push` reports `secret guard: blocked`, the listed files match a sensitive filename pattern. Remove or rename them before retrying:
+If `gitbox c` reports `secret guard: blocked`, the listed files match a sensitive filename pattern. Remove or rename them before retrying:
 
 ```powershell
 # after secret guard block
 git status                   # confirm which files are present
 # move or delete the flagged files
-"your commit message" | g-commit-push
+gitbox c "your commit message"
 ```
 
 ### Merge Failure
 
-If `g-merge-rotate` reports `merge failed`, the PR was not merged and the branch is preserved. Check the failure reason and retry:
+If `gitbox m` reports `merge failed`, the PR was not merged and the branch is preserved. Check the failure reason and retry:
 
 ```powershell
 # after merge failed
-g-pr-checks                  # inspect failing CI checks
-gh pr view                   # read any merge blockers (review required, conflicts)
+gitbox x                     # inspect failing CI checks
+gitbox P                     # read merge blockers (review decision, check rollup)
 # resolve the blocker, then:
-"next-branch-name" | g-merge-rotate
+gitbox m "next-branch-name"
 ```
 
 ### gh Authentication Error
 
-If any script reports `authentication failed` or `permission denied` on a `gh` call:
+If any gitbox command reports `authentication failed` or `permission denied` on a `gh` call:
 
 ```powershell
 gh auth login                # re-authenticate
@@ -508,7 +534,7 @@ gh auth status               # verify scope includes repo
 
 ## Matrix Internals
 
-`g-matrix-scan`, `g-matrix-resolve`, `g-backlog`, and `g-capabilities` operate on a compact state hash that encodes the full repo situation in one string.
+`gitbox S`, `gitbox B`, and `gitbox C` (and the underlying `g-matrix-resolve` pipeline utility) operate on a compact state hash that encodes the full repo situation in one string.
 
 ### State Hash Format
 
@@ -554,7 +580,7 @@ Priority order encodes a dependency graph: you cannot safely open a PR while beh
 
 > *The following sections are only relevant to gitbox development. They are not useful for general operation.*
 
-`g-backlog` discovers gaps by running `g-matrix-resolve` against every valid state combination rather than parsing source text. Using two representative values per numeric dimension (0 and 1) the enumeration covers:
+`gitbox B` discovers gaps by running `g-matrix-resolve` against every valid state combination rather than parsing source text. Using two representative values per numeric dimension (0 and 1) the enumeration covers:
 
 ```
 |S| = |C| × |D| × |A| × |B| × |P| × |R|
@@ -574,7 +600,7 @@ covers(W, G) = true  iff  ⋃_{f ∈ flags(W)} caps(f)  ⊇  requirements(G)
 
 ### Capabilities Scan
 
-`g-capabilities` reads every `g-*.ps1` script line by line, matches each non-comment line against the regex patterns in `$CapabilityPatterns`, and records which git/gh operations each script can perform.
+`gitbox C` reads every `g-*.ps1` script line by line, matches each non-comment line against the regex patterns in `$CapabilityPatterns`, and records which git/gh operations each script can perform.
 
 Gap coverage score for a script S against gap dimension G:
 
