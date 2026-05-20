@@ -20,7 +20,9 @@ process {
         Write-Host "remote is not GitHub: $remote"; exit 1
     }
 
-    $repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
+    # Derive from origin URL directly — gh repo view resolves to the upstream parent when an
+    # upstream remote exists, which would open the PR in the wrong repo.
+    $repoName = ($remote -replace ".*github\.com[:/]", "") -replace "\.git$", ""
     $branch     = git -C $repo branch --show-current 2>$null
     $cfg        = Get-GitboxConfig -RepoPath $repo
     $baseBranch = $cfg.BaseBranch
