@@ -295,7 +295,7 @@ if (@($mutating | Where-Object { $_.Flag -in $skippableFlags }).Count -gt 0) {
                     exit 1
                 }
                 if ($newName) {
-                    $newName | & (Join-Path $PSScriptRoot 'g-branch-rename.ps1')
+                    $newName | & (Join-Path $PSScriptRoot 'g-branch.ps1') -Action rename
                     if ($LASTEXITCODE -ne 0) { Write-Host "gitbox: rename failed"; exit $LASTEXITCODE }
                 }
             }

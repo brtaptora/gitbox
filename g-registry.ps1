@@ -66,16 +66,16 @@ function Get-ScriptCapabilities {
 
 $FlagScripts = @{
     f = 'g-fork-setup.ps1'
-    b = 'g-branch-create.ps1'
-    r = 'g-branch-rename.ps1'
-    s = 'g-branch-sync.ps1'
+    b = 'g-branch.ps1'
+    r = 'g-branch.ps1'
+    s = 'g-branch.ps1'
     c = 'g-commit-push.ps1'
-    u = 'g-push.ps1'
+    u = 'g-commit-push.ps1'
     o = 'g-open-pr.ps1'
-    x = 'g-pr-checks.ps1'
+    x = 'g-pr.ps1'
     m = 'g-merge-rotate.ps1'
-    g = 'g-branch-base.ps1'
-    k = 'g-branch-checkout.ps1'
+    g = 'g-branch.ps1'
+    k = 'g-branch.ps1'
     n = 'g-unstack.ps1'
     z = 'g-release.ps1'
 }
