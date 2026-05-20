@@ -97,7 +97,7 @@ if ($cfg.BaseBranch -ne $cfg.DefaultBranch) {
         if ("$line" -match 'PR #(\d+)') { $prNumber = $Matches[1]; break }
     }
 
-    & (Join-Path $PSScriptRoot 'g-pr-checks.ps1')
+    & (Join-Path $PSScriptRoot 'g-pr.ps1') -Action checks
     if ($LASTEXITCODE -ne 0) { Write-Host "release blocked: checks failing on PR #$prNumber"; exit 1 }
 
     & (Join-Path $PSScriptRoot 'g-merge-rotate.ps1') -Steps 2
