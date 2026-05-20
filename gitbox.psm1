@@ -51,23 +51,28 @@ function Get-GitRunLogs {
 }
 
 function Get-GitPullRequestChecks {
-    & (Join-Path $PSScriptRoot 'g-pr-checks.ps1')
+    & (Join-Path $PSScriptRoot 'g-pr.ps1') -Action checks
 }
 
 function New-GitBranch {
     param(
         [Parameter(ValueFromPipeline, Mandatory)]
-        [string]$Name
+        [string]$Name,
+        [switch]$Stack
     )
-    process { $Name | & (Join-Path $PSScriptRoot 'g-branch-create.ps1') }
+    process { $Name | & (Join-Path $PSScriptRoot 'g-branch.ps1') -Action create -Stack:$Stack }
 }
 
 function Push-GitBranch {
-    & (Join-Path $PSScriptRoot 'g-push.ps1')
+    & (Join-Path $PSScriptRoot 'g-commit-push.ps1') -Action push
 }
 
 function Sync-GitBranch {
-    & (Join-Path $PSScriptRoot 'g-branch-sync.ps1')
+    & (Join-Path $PSScriptRoot 'g-branch.ps1') -Action sync
+}
+
+function Sync-GitFork {
+    & (Join-Path $PSScriptRoot 'g-branch.ps1') -Action fork-sync
 }
 
 function Rename-GitBranch {
@@ -75,7 +80,7 @@ function Rename-GitBranch {
         [Parameter(ValueFromPipeline, Mandatory)]
         [string]$Name
     )
-    process { $Name | & (Join-Path $PSScriptRoot 'g-branch-rename.ps1') }
+    process { $Name | & (Join-Path $PSScriptRoot 'g-branch.ps1') -Action rename }
 }
 
 function Switch-GitBranch {
@@ -83,12 +88,12 @@ function Switch-GitBranch {
         [Parameter(ValueFromPipeline, Mandatory)]
         [string]$Name
     )
-    process { $Name | & (Join-Path $PSScriptRoot 'g-branch-checkout.ps1') }
+    process { $Name | & (Join-Path $PSScriptRoot 'g-branch.ps1') -Action checkout }
 }
 
 function Switch-GitBaseBranch {
     param([switch]$NoStashPop)
-    & (Join-Path $PSScriptRoot 'g-branch-base.ps1') @PSBoundParameters
+    & (Join-Path $PSScriptRoot 'g-branch.ps1') -Action base -NoStashPop:$NoStashPop
 }
 
 function Undo-GitCommit {
@@ -139,7 +144,7 @@ function Get-GitLog {
 }
 
 function Show-GitPullRequest {
-    & (Join-Path $PSScriptRoot 'g-pr-view.ps1')
+    & (Join-Path $PSScriptRoot 'g-pr.ps1') -Action view
 }
 
 Set-Alias -Name 'g-status'         -Value 'Get-GitStatus'
@@ -153,6 +158,7 @@ Set-Alias -Name 'g-capabilities'   -Value 'Get-GitCapabilities'
 Set-Alias -Name 'g-run-logs'       -Value 'Get-GitRunLogs'
 Set-Alias -Name 'g-branch-rename'  -Value 'Rename-GitBranch'
 Set-Alias -Name 'g-branch-sync'    -Value 'Sync-GitBranch'
+Set-Alias -Name 'g-fork-sync'      -Value 'Sync-GitFork'
 Set-Alias -Name 'g-push'           -Value 'Push-GitBranch'
 Set-Alias -Name 'g-branch-create'   -Value 'New-GitBranch'
 Set-Alias -Name 'g-pr-checks'       -Value 'Get-GitPullRequestChecks'
@@ -195,7 +201,8 @@ $_gbRoot = $PSScriptRoot
 $_wfDescs = [ordered]@{
     start   = 'Beginning a new ticket from the base branch'
     rename  = 'Promoting a wip branch before opening a PR'
-    sync    = 'Branch is behind base'
+    sync       = 'Branch is behind base'
+    'sync-fork' = 'Syncing fork base branch from upstream'
     commit  = 'Saving incremental progress on an open PR'
     push    = 'Pushing commits made outside gitbox'
     pr      = 'Opening a PR on an already-pushed branch'
@@ -212,7 +219,8 @@ $_wfDescs = [ordered]@{
 # Ordinal (case-sensitive) ordered dict avoids [ordered]@{} treating s/S, b/B etc. as duplicate keys
 $_flagDescs = [System.Collections.Specialized.OrderedDictionary]::new([System.StringComparer]::Ordinal)
 $_flagDescs.Add('b','branch-create'); $_flagDescs.Add('r','branch-rename')
-$_flagDescs.Add('s','branch-sync');   $_flagDescs.Add('c','commit-push')
+$_flagDescs.Add('e','fork-sync');     $_flagDescs.Add('s','branch-sync')
+$_flagDescs.Add('c','commit-push')
 $_flagDescs.Add('v','revert');        $_flagDescs.Add('u','push')
 $_flagDescs.Add('o','open-pr');       $_flagDescs.Add('x','pr-checks')
 $_flagDescs.Add('m','merge-rotate');  $_flagDescs.Add('z','release')

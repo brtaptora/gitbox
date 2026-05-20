@@ -110,12 +110,12 @@ if ($LASTEXITCODE -ne 0) { Write-Host "pull origin/$baseBranch failed"; if ($Ver
 if (3 -ge $Steps) { exit 0 }
 
 # Step 4: delete remote branch (GitHub may already have deleted it on merge)
-$delRemoteOut = git -C $repo push origin --delete $branch 2>&1
+git -C $repo push origin --delete $branch 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) { Write-Host "  warning: remote branch delete failed (may already be deleted)" }
 if (4 -ge $Steps) { exit 0 }
 
 # Step 5: delete local branch
-$delLocalOut = git -C $repo branch -d $branch 2>&1
+$delLocalOut = git -C $repo branch -D $branch 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Host "  warning: local branch delete failed: $($delLocalOut -join ' ')" }
 if (5 -ge $Steps) { exit 0 }
 
