@@ -125,17 +125,18 @@ if ($Spec -in @('--version', 'version')) {
 # Case-sensitive: lowercase=mutating, uppercase=diagnostic; 's' and 'S' are distinct keys
 $FlagMap = [System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)
 $FlagMap['f'] = @{ Script = 'g-fork-setup.ps1';     NeedsArg = 'optional' }
-$FlagMap['b'] = @{ Script = 'g-branch-create.ps1';  NeedsArg = $true;  Force = $true; Switches = @('Stack') }
-$FlagMap['r'] = @{ Script = 'g-branch-rename.ps1';  NeedsArg = $true  }
-$FlagMap['s'] = @{ Script = 'g-branch-sync.ps1';    NeedsArg = $false }
+$FlagMap['b'] = @{ Script = 'g-branch.ps1'; Action = 'create';    NeedsArg = $true;     Force = $true; Switches = @('Stack') }
+$FlagMap['r'] = @{ Script = 'g-branch.ps1'; Action = 'rename';    NeedsArg = $true }
+$FlagMap['e'] = @{ Script = 'g-branch.ps1'; Action = 'fork-sync'; NeedsArg = $false }
+$FlagMap['s'] = @{ Script = 'g-branch.ps1'; Action = 'sync';      NeedsArg = $false }
 $FlagMap['c'] = @{ Script = 'g-commit-push.ps1';    NeedsArg = 'optional'; Switches = @('Amend'); ValueParams = @('Include','Exclude') }
 $FlagMap['v'] = @{ Script = 'g-revert.ps1';         NeedsArg = 'optional' }
-$FlagMap['u'] = @{ Script = 'g-push.ps1';           NeedsArg = $false }
+$FlagMap['u'] = @{ Script = 'g-commit-push.ps1'; Action = 'push'; NeedsArg = $false }
 $FlagMap['o'] = @{ Script = 'g-open-pr.ps1';        NeedsArg = 'optional'; Switches = @('Draft','Upstream') }
-$FlagMap['x'] = @{ Script = 'g-pr-checks.ps1';      NeedsArg = $false }
+$FlagMap['x'] = @{ Script = 'g-pr.ps1';   Action = 'checks';     NeedsArg = $false }
 $FlagMap['m'] = @{ Script = 'g-merge-rotate.ps1';   NeedsArg = 'optional'; Switches = @('Squash','Rebase') }
-$FlagMap['g'] = @{ Script = 'g-branch-base.ps1';    NeedsArg = $false; Switches = @('NoStashPop') }
-$FlagMap['k'] = @{ Script = 'g-branch-checkout.ps1'; NeedsArg = $true }
+$FlagMap['g'] = @{ Script = 'g-branch.ps1'; Action = 'base';      NeedsArg = $false; Switches = @('NoStashPop') }
+$FlagMap['k'] = @{ Script = 'g-branch.ps1'; Action = 'checkout';  NeedsArg = $true }
 $FlagMap['n'] = @{ Script = 'g-unstack.ps1';         NeedsArg = $false; Switches = @('Force','DryRun','Quiet') }
 $FlagMap['z'] = @{ Script = 'g-release.ps1';        NeedsArg = 'optional'; Switches = @('View') }
 $FlagMap['Q'] = @{ Script = 'g-status.ps1';         NeedsArg = $false }
@@ -147,11 +148,11 @@ $FlagMap['O'] = @{ Script = $null;                  NeedsArg = $false }
 $FlagMap['H'] = @{ Script = 'g-health.ps1';         NeedsArg = $false }
 $FlagMap['L'] = @{ Script = 'g-log.ps1';            NeedsArg = $false; Switches = @('Full') }
 $FlagMap['D'] = @{ Script = 'g-diff.ps1';           NeedsArg = $false }
-$FlagMap['P'] = @{ Script = 'g-pr-view.ps1';        NeedsArg = $false }
+$FlagMap['P'] = @{ Script = 'g-pr.ps1';   Action = 'view';        NeedsArg = $false }
 $FlagMap['X'] = @{ Script = 'g-run-logs.ps1';       NeedsArg = $false }
 $FlagMap['T'] = @{ Script = 'g-stack.ps1';          NeedsArg = $false }
 
-$CanonicalOrder = [string[]]@('f','b','r','s','c','v','u','o','x','m','g','k','n','z','H','Q','L','D','P','S','B','C','W','O','X','T')
+$CanonicalOrder = [string[]]@('f','b','r','e','s','c','v','u','o','x','m','g','k','n','z','H','Q','L','D','P','S','B','C','W','O','X','T')
 
 # Resolve workflow name, workflow-prefix+flags compound (e.g. shipX), or raw flag string
 $flagStr = if ($WorkflowRegistry.Contains($Spec)) {
@@ -343,6 +344,7 @@ while ($i -lt $mutating.Count) {
         $stepSwitches['NoStashPop'] = $true
     }
     $splatArgs = $forceArg + $stepSwitches
+    if ($step.Info.Action) { $splatArgs['Action'] = $step.Info.Action }
     $spin = Start-Spinner $name
     if ($step.Info.NeedsArg -eq $true) {
         $rawOut = $argQueue.Dequeue() | & $script @splatArgs 6>&1
