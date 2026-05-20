@@ -4,7 +4,7 @@ $repo     = Get-Location
 $branch   = git -C $repo branch --show-current 2>$null
 if (-not $branch) { Write-Host "not a git repo"; exit 1 }
 
-$repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
+$repoName   = ((git -C $repo remote get-url origin 2>$null) -replace ".*github\.com[:/]", "") -replace "\.git$", ""
 $baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
 $allPRs = gh pr list --repo $repoName --state open --json number,headRefName,baseRefName,title,statusCheckRollup 2>$null | ConvertFrom-Json

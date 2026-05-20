@@ -184,7 +184,8 @@ function Get-GitRepoState {
     $cfg        = Get-GitboxConfig -RepoPath $RepoPath
     $baseBranch = $cfg.BaseBranch
     $upstream   = $cfg.Upstream
-    $repoName   = if (-not $GitOnly) { gh repo view --json nameWithOwner -q .nameWithOwner 2>$null } else { $null }
+    $originUrl  = git -C $RepoPath remote get-url origin 2>$null
+    $repoName   = if (-not $GitOnly -and $originUrl) { ($originUrl -replace ".*github\.com[:/]", "") -replace "\.git$", "" } else { $null }
 
     $ahead = 0; $behind = 0
     if (git -C $RepoPath rev-parse --verify "origin/$baseBranch" 2>$null) {

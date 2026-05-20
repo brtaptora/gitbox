@@ -21,7 +21,7 @@ if ($remote -notmatch '[/@]github\.com[:/]') {
     Write-Host "remote is not GitHub: $remote"; exit 1
 }
 
-$repoName   = gh repo view --json nameWithOwner -q .nameWithOwner 2>$null
+$repoName   = ($remote -replace ".*github\.com[:/]", "") -replace "\.git$", ""
 $branch     = git -C $repo branch --show-current 2>$null
 $baseBranch = (Get-GitboxConfig -RepoPath $repo).BaseBranch
 
