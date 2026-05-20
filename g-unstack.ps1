@@ -129,7 +129,7 @@ foreach ($b in $ordered) {
     }
 
     if (-not $Quiet) { Write-Host "unstack: $i/$n — checking CI for #$($pr.number) ..." }
-    & (Join-Path $PSScriptRoot 'g-pr-checks.ps1')
+    & (Join-Path $PSScriptRoot 'g-pr.ps1') -Action checks
     if ($LASTEXITCODE -ne 0) {
         Write-Host "unstack: $i/$n — CI failed for #$($pr.number) ($b); halting"
         exit 1
